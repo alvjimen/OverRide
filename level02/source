@@ -1,0 +1,44 @@
+int __fastcall main(int argc, const char **argv, const char **envp)
+{
+  char passwd_input[100] = {0}; // [rsp+10h] [rbp-110h] BYREF
+  char passwd[48] = {0}; // [rsp+80h] [rbp-A0h] BYREF
+  char username[100] = {0}; // [rsp+B0h] [rbp-70h] BYREF
+  int file_size; // [rsp+114h] [rbp-Ch]
+  FILE *stream; // [rsp+118h] [rbp-8h]
+
+  stream = fopen("/home/users/level03/.pass", "r");
+  if ( !stream )
+  {
+    fwrite("ERROR: failed to open password file\n", 1u, 36, stderr);
+    exit(1);
+  }
+  file_size = fread(passwd, 1u, 41, stream);
+  passwd[strcspn(passwd, "\n")] = 0;
+  if ( file_size != 41 )
+  {
+    fwrite("ERROR: failed to read password file\n", 1u, 36, stderr);
+    fwrite("ERROR: failed to read password file\n", 1u, 36, stderr);
+    exit(1);
+  }
+  fclose(stream);
+  puts("===== [ Secure Access System v1.0 ] =====");
+  puts("/***************************************\\");
+  puts("| You must login to access this system. |");
+  puts("\\**************************************/");
+  printf("--[ Username: ");
+  fgets(username, 100, stdin);
+  username[strcspn(username, "\n")] = 0;
+  printf("--[ Password: ");
+  fgets(passwd_input, 100, stdin);
+  passwd_input[strcspn(passwd_input, "\n")] = 0;
+  puts("*****************************************");
+  if ( strncmp(passwd, passwd_input, 41) )
+  {
+    printf(s);
+    puts(" does not have access!");
+    exit(1);
+  }
+  printf("Greetings, %s!\n", username);
+  system("/bin/sh");
+  return 0;
+}

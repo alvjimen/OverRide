@@ -1,0 +1,39 @@
+#+title: Documentation
+* Activated features
+https://ctf101.org/binary-exploitation/what-is-binary-security/
+https://www.tarlogic.com/blog/owasp-fstm-exploitation-of-executables/#16_Other_exploitation_techniques
+#+begin_src shell
+level00@OverRide:~$ checksec --file $USER
+RELRO           STACK CANARY      NX            PIE             RPATH      RUNPATH      FILE
+Partial RELRO   No canary found   NX enabled    No PIE          No RPATH   No RUNPATH   level00
+#+end_src
+** Relro
+#+begin_src quote
+From an attackers point-of-view, partial RELRO makes almost no difference, other than it forces the GOT to come before the BSS in memory, eliminating the risk of a buffer overflows on a global variable overwriting GOT entries.
+#+end_src
+*** What partial RELRO
+does protect against (narrow):
+#+begin_src quote
+    It eliminates a specific memory-layout-based risk where a global (BSS) buffer overflow that grows in the direction of higher addresses could reach and overwrite GOT entries because GOT was placed after BSS. By forcing GOT before BSS, that particular accidental/naïve overwrite is prevented.
+#+end_src
+*** Full RELRO
+#+begin_src quote
+Full RELRO makes the entire GOT read-only which removes the ability to perform a "GOT overwrite" attack, where the GOT address of a function is overwritten with the location of another function or a ROP gadget an attacker wants to run.
+
+Full RELRO is not a default compiler setting as it can greatly increase program startup time since all symbols must be resolved before the program is started. In large programs with thousands of symbols that need to be linked, this could cause a noticable delay in startup time.
+#+end_src
+** NX enabled
+#+begin_src quote
+The No eXecute or the NX bit (also known as Data Execution Prevention or DEP) marks certain areas of the program as not executable, meaning that stored input or data cannot be executed as code. This is significant because it prevents attackers from being able to jump to custom shellcode that they've stored on the stack or in a global variable
+;tldr
+*the stack and bss is not executable.*
+#+end_src
+
+#+begin_quote
+Limits of NX — what attackers can still do:
+
+    Return-Oriented Programming (ROP) / Jump-Oriented Programming (JOP): attackers reuse small snippets of existing executable code (gadgets) already present in executable pages (libraries, the executable). ROP chains can achieve arbitrary computation without executing injected code, so NX alone does not block control-flow hijacking.
+    Code-reuse plus memory-write primitives: attackers can sometimes overwrite or map new executable pages (mprotect, VirtualProtect, JIT spray) to make data executable, bypassing NX if they can call those APIs or exploit a vulnerability enabling that.
+    JIT/Just-In-Time engines and executable writable regions: poorly configured JITs or writable-executable mappings weaken NX.
+    Non-control-data attacks: NX only prevents execution of injected code; it does not stop attackers from corrupting non-control data (counters, flags, pointers) to alter program logic.
+#+end_quote
