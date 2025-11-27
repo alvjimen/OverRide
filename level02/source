@@ -34,7 +34,7 @@ int __fastcall main(int argc, const char **argv, const char **envp)
   puts("*****************************************");
   if ( strncmp(passwd, passwd_input, 41) )
   {
-    printf(s);
+    printf(username);
     puts(" does not have access!");
     exit(1);
   }
