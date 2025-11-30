@@ -1,0 +1,304 @@
+#+title: Walkthrough
+* Data Gathering
+** check sec
+#+begin_src shell
+RELRO           STACK CANARY      NX            PIE             RPATH      RUNPATH      FILE
+Partial RELRO   No canary found   NX disabled   No PIE          No RPATH   No RUNPATH   /home/users/level04/level04
+#+end_src
+** Sticky bit
+#+begin_src shell
+ls -l
+total 8
+-rwsr-s---+ 1 level05 users 7797 Sep 10  2016 level04
+#+end_src
+** Strings
+#+begin_src shell
+readelf -p.rodata ./$USER
+
+String dump of section '.rodata':
+  [     8]  %u
+  [     b]  Give me some shellcode, k
+  [    25]  child is exiting...
+  [    39]  no exec() for you
+#+end_src
+** Functions
+#+begin_src shell
+(gdb) info  functions
+All defined functions:
+
+Non-debugging symbols:
+0x0804845c  _init
+0x080484a0  fflush
+0x080484a0  fflush@plt
+0x080484b0  gets
+0x080484b0  gets@plt
+0x080484c0  getchar
+0x080484c0  getchar@plt
+0x080484d0  signal
+0x080484d0  signal@plt
+0x080484e0  alarm
+0x080484e0  alarm@plt
+0x080484f0  wait
+0x080484f0  wait@plt
+0x08048500  puts
+0x08048500  puts@plt
+0x08048510  __gmon_start__
+0x08048510  __gmon_start__@plt
+0x08048520  kill
+0x08048520  kill@plt
+0x08048530  __libc_start_main
+0x08048530  __libc_start_main@plt
+0x08048540  prctl
+0x08048540  prctl@plt
+0x08048550  fork
+0x08048550  fork@plt
+0x08048560  __isoc99_scanf
+0x08048560  __isoc99_scanf@plt
+0x08048570  ptrace
+0x08048570  ptrace@plt
+0x08048580  _start
+0x080485b0  __do_global_dtors_aux
+0x08048610  frame_dummy
+0x08048634  clear_stdin
+0x08048657  get_unum
+0x0804868f  prog_timeout
+0x080486a0  enable_timeout_cons
+0x080486c8  main
+0x08048830  __libc_csu_init
+0x080488a0  __libc_csu_fini
+0x080488a2  __i686.get_pc_thunk.bx
+0x080488b0  __do_global_ctors_aux
+0x080488dc  _fini
+#+end_src
+#+begin_quote
+main, enable_timeout_cons, prog_timeout, get_unum,  clear_stdin Interesting ones.
+#+end_quote
+** Global vars
+#+begin_src shell
+(gdb) info  variables
+All defined variables:
+
+Non-debugging symbols:
+0x080488f8  _fp_hw
+0x080488fc  _IO_stdin_used
+0x08048ae4  __FRAME_END__
+0x08049f00  __init_array_start
+0x08049f04  __CTOR_LIST__
+0x08049f04  __init_array_end
+0x08049f08  __CTOR_END__
+0x08049f0c  __DTOR_LIST__
+0x08049f10  __DTOR_END__
+0x08049f14  __JCR_END__
+0x08049f14  __JCR_LIST__
+0x08049f18  _DYNAMIC
+0x08049ff4  _GLOBAL_OFFSET_TABLE_
+0x0804a038  __data_start
+0x0804a038  data_start
+0x0804a03c  __dso_handle
+0x0804a040  stdout@@GLIBC_2.0
+0x0804a044  completed.6159
+0x0804a048  dtor_idx.6161
+#+end_src
+* Binary Analisis
+** Functions
+#+begin_src shell
+(gdb) disassemble main
+Dump of assembler code for function main:
+   0x080486c8 <+0>:	push   ebp
+   0x080486c9 <+1>:	mov    ebp,esp
+   0x080486cb <+3>:	push   edi
+   0x080486cc <+4>:	push   ebx
+   0x080486cd <+5>:	and    esp,0xfffffff0
+   0x080486d0 <+8>:	sub    esp,0xb0
+   0x080486d6 <+14>:	call   0x8048550 <fork@plt>
+   0x080486db <+19>:	mov    DWORD PTR [esp+0xac],eax
+   0x080486e2 <+26>:	lea    ebx,[esp+0x20]
+   0x080486e6 <+30>:	mov    eax,0x0
+   0x080486eb <+35>:	mov    edx,0x20
+   0x080486f0 <+40>:	mov    edi,ebx
+   0x080486f2 <+42>:	mov    ecx,edx
+   0x080486f4 <+44>:	rep stos DWORD PTR es:[edi],eax
+   0x080486f6 <+46>:	mov    DWORD PTR [esp+0xa8],0x0
+   0x08048701 <+57>:	mov    DWORD PTR [esp+0x1c],0x0
+   0x08048709 <+65>:	cmp    DWORD PTR [esp+0xac],0x0
+   0x08048711 <+73>:	jne    0x8048769 <main+161>
+   0x08048713 <+75>:	mov    DWORD PTR [esp+0x4],0x1
+   0x0804871b <+83>:	mov    DWORD PTR [esp],0x1
+---Type <return> to continue, or q <return> to quit---
+   0x08048722 <+90>:	call   0x8048540 <prctl@plt>
+   0x08048727 <+95>:	mov    DWORD PTR [esp+0xc],0x0
+   0x0804872f <+103>:	mov    DWORD PTR [esp+0x8],0x0
+   0x08048737 <+111>:	mov    DWORD PTR [esp+0x4],0x0
+   0x0804873f <+119>:	mov    DWORD PTR [esp],0x0
+   0x08048746 <+126>:	call   0x8048570 <ptrace@plt>
+   0x0804874b <+131>:	mov    DWORD PTR [esp],0x8048903
+   0x08048752 <+138>:	call   0x8048500 <puts@plt>
+   0x08048757 <+143>:	lea    eax,[esp+0x20]
+   0x0804875b <+147>:	mov    DWORD PTR [esp],eax
+   0x0804875e <+150>:	call   0x80484b0 <gets@plt>
+   0x08048763 <+155>:	jmp    0x804881a <main+338>
+   0x08048768 <+160>:	nop
+   0x08048769 <+161>:	lea    eax,[esp+0x1c]
+   0x0804876d <+165>:	mov    DWORD PTR [esp],eax
+   0x08048770 <+168>:	call   0x80484f0 <wait@plt>
+   0x08048775 <+173>:	mov    eax,DWORD PTR [esp+0x1c]
+   0x08048779 <+177>:	mov    DWORD PTR [esp+0xa0],eax
+   0x08048780 <+184>:	mov    eax,DWORD PTR [esp+0xa0]
+   0x08048787 <+191>:	and    eax,0x7f
+   0x0804878a <+194>:	test   eax,eax
+---Type <return> to continue, or q <return> to quit---
+   0x0804878c <+196>:	je     0x80487ac <main+228>
+   0x0804878e <+198>:	mov    eax,DWORD PTR [esp+0x1c]
+   0x08048792 <+202>:	mov    DWORD PTR [esp+0xa4],eax
+   0x08048799 <+209>:	mov    eax,DWORD PTR [esp+0xa4]
+   0x080487a0 <+216>:	and    eax,0x7f
+   0x080487a3 <+219>:	add    eax,0x1
+   0x080487a6 <+222>:	sar    al,1
+   0x080487a8 <+224>:	test   al,al
+   0x080487aa <+226>:	jle    0x80487ba <main+242>
+   0x080487ac <+228>:	mov    DWORD PTR [esp],0x804891d
+   0x080487b3 <+235>:	call   0x8048500 <puts@plt>
+   0x080487b8 <+240>:	jmp    0x804881a <main+338>
+   0x080487ba <+242>:	mov    DWORD PTR [esp+0xc],0x0
+   0x080487c2 <+250>:	mov    DWORD PTR [esp+0x8],0x2c
+   0x080487ca <+258>:	mov    eax,DWORD PTR [esp+0xac]
+   0x080487d1 <+265>:	mov    DWORD PTR [esp+0x4],eax
+   0x080487d5 <+269>:	mov    DWORD PTR [esp],0x3
+   0x080487dc <+276>:	call   0x8048570 <ptrace@plt>
+   0x080487e1 <+281>:	mov    DWORD PTR [esp+0xa8],eax
+   0x080487e8 <+288>:	cmp    DWORD PTR [esp+0xa8],0xb
+   0x080487f0 <+296>:	jne    0x8048768 <main+160>
+---Type <return> to continue, or q <return> to quit---
+   0x080487f6 <+302>:	mov    DWORD PTR [esp],0x8048931
+   0x080487fd <+309>:	call   0x8048500 <puts@plt>
+   0x08048802 <+314>:	mov    DWORD PTR [esp+0x4],0x9
+   0x0804880a <+322>:	mov    eax,DWORD PTR [esp+0xac]
+   0x08048811 <+329>:	mov    DWORD PTR [esp],eax
+   0x08048814 <+332>:	call   0x8048520 <kill@plt>
+   0x08048819 <+337>:	nop
+   0x0804881a <+338>:	mov    eax,0x0
+   0x0804881f <+343>:	lea    esp,[ebp-0x8]
+   0x08048822 <+346>:	pop    ebx
+   0x08048823 <+347>:	pop    edi
+   0x08048824 <+348>:	pop    ebp
+   0x08048825 <+349>:	ret    
+End of assembler dump.
+(gdb) 
+(gdb) disassemble enable_timeout_cons
+Dump of assembler code for function enable_timeout_cons:
+   0x080486a0 <+0>:	push   ebp
+   0x080486a1 <+1>:	mov    ebp,esp
+   0x080486a3 <+3>:	sub    esp,0x18
+   0x080486a6 <+6>:	mov    DWORD PTR [esp+0x4],0x804868f
+   0x080486ae <+14>:	mov    DWORD PTR [esp],0xe
+   0x080486b5 <+21>:	call   0x80484d0 <signal@plt>
+   0x080486ba <+26>:	mov    DWORD PTR [esp],0x3c
+   0x080486c1 <+33>:	call   0x80484e0 <alarm@plt>
+   0x080486c6 <+38>:	leave  
+   0x080486c7 <+39>:	ret    
+End of assembler dump.
+(gdb) disassemble prog_timeout
+Dump of assembler code for function prog_timeout:
+   0x0804868f <+0>:	push   ebp
+   0x08048690 <+1>:	mov    ebp,esp
+   0x08048692 <+3>:	mov    eax,0x1
+   0x08048697 <+8>:	mov    ebx,0x1
+   0x0804869c <+13>:	int    0x80
+   0x0804869e <+15>:	pop    ebp
+   0x0804869f <+16>:	ret    
+End of assembler dump.
+(gdb) disassemble get_unum
+Dump of assembler code for function get_unum:
+   0x08048657 <+0>:	push   ebp
+   0x08048658 <+1>:	mov    ebp,esp
+   0x0804865a <+3>:	sub    esp,0x28
+   0x0804865d <+6>:	mov    DWORD PTR [ebp-0xc],0x0
+   0x08048664 <+13>:	mov    eax,ds:0x804a040
+   0x08048669 <+18>:	mov    DWORD PTR [esp],eax
+   0x0804866c <+21>:	call   0x80484a0 <fflush@plt>
+   0x08048671 <+26>:	mov    eax,0x8048900
+   0x08048676 <+31>:	lea    edx,[ebp-0xc]
+   0x08048679 <+34>:	mov    DWORD PTR [esp+0x4],edx
+   0x0804867d <+38>:	mov    DWORD PTR [esp],eax
+   0x08048680 <+41>:	call   0x8048560 <__isoc99_scanf@plt>
+   0x08048685 <+46>:	call   0x8048634 <clear_stdin>
+   0x0804868a <+51>:	mov    eax,DWORD PTR [ebp-0xc]
+   0x0804868d <+54>:	leave  
+   0x0804868e <+55>:	ret    
+End of assembler dump.
+(gdb) disassemble clear_stdin
+Dump of assembler code for function clear_stdin:
+   0x08048634 <+0>:	push   ebp
+   0x08048635 <+1>:	mov    ebp,esp
+   0x08048637 <+3>:	sub    esp,0x18
+   0x0804863a <+6>:	mov    BYTE PTR [ebp-0x9],0x0
+   0x0804863e <+10>:	jmp    0x8048641 <clear_stdin+13>
+   0x08048640 <+12>:	nop
+   0x08048641 <+13>:	call   0x80484c0 <getchar@plt>
+   0x08048646 <+18>:	mov    BYTE PTR [ebp-0x9],al
+   0x08048649 <+21>:	cmp    BYTE PTR [ebp-0x9],0xa
+   0x0804864d <+25>:	je     0x8048655 <clear_stdin+33>
+   0x0804864f <+27>:	cmp    BYTE PTR [ebp-0x9],0xff
+   0x08048653 <+31>:	jne    0x8048640 <clear_stdin+12>
+   0x08048655 <+33>:	leave  
+   0x08048656 <+34>:	ret    
+End of assembler dump.
+(gdb) 
+#+end_src
+** Source
+[[source]]
+#+begin_quote
+  Research on gcc library
+  #include <bits/waitstatus.h>
+  /* Nonzero if STATUS indicates termination by a signal.  */
+#define __WIFSIGNALED(status) \
+  (((signed char) (((status) & 0x7f) + 1) >> 1) > 0)
+
+/* If WIFSIGNALED(STATUS), the terminating signal.  */
+#define	__WTERMSIG(status)	((status) & 0x7f)
+https://notes.eatonphil.com/2023-10-01-intercepting-and-modifying-linux-system-calls-with-ptrace.html
+https://sites.uclouvain.be/SystInfo/usr/include/sys/user.h.html
+#
+struct user_regs_struct
+{
+  unsigned long r15;
+  unsigned long r14;
+  unsigned long r13;
+  unsigned long r12;
+  unsigned long rbp;
+  unsigned long rbx;
+  unsigned long r11;
+  unsigned long r10;
+  unsigned long r9;
+  unsigned long r8;
+  unsigned long rax;
+  unsigned long rcx;
+  unsigned long rdx;
+  unsigned long rsi;
+  unsigned long rdi;
+  unsigned long orig_rax;
+  unsigned long rip;
+  unsigned long cs;
+  unsigned long eflags;
+  unsigned long rsp;
+  unsigned long ss;
+  unsigned long fs_base;
+  unsigned long gs_base;
+  unsigned long ds;
+  unsigned long es;
+  unsigned long fs;
+  unsigned long gs;
+};
+#+end_quote
+** Get offset
+#+begin_src shell
+
+#+end_src
+** Explotation idea
+#+begin_src shell
+may i need to fork to and in the fork execute the shellcode?
+#+end_src
+* Explotation
+#+begin_src shell
+cat /tmp/$USER - | ./$USER
+#+end_src

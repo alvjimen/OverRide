@@ -1,0 +1,46 @@
+int decrypt(int key)
+{
+  int i;
+  int message_len;
+  char message[28];
+
+  message[17] = 20;
+  strcpy(message, "Q}|u`sfg~sf{}|a3");
+  message_len = strlen(message);
+  i = 0;
+  while (i < message_len)
+    message[i++] ^=  key;
+  if (!strcmp(message, "Congratulations!"))
+    return (system("/bin/sh"));
+  return (puts("Invalid Password"));
+}
+
+int test(int n1, int n2)
+{
+  int result;
+  int v3; // al
+  if (n2-n1 > 0  && n2-n1 <= 21)
+      result = decrypt(n2-n1);
+  else
+  {
+    v3 = rand();
+    result = decrypt(v3);
+  }
+  return  (result);
+}
+
+int main(void)
+{
+  time_t v3; // eax
+  int savedregs; // [esp+20h] [ebp+0h] 
+
+  v3 = time(0);
+  srand(v3);
+  puts("***********************************");
+  puts("*\t\tlevel03\t\t**");
+  puts("***********************************");
+  printf("Password:");
+  __isoc99_scanf("%u", &savedregs);
+  test(savedregs, 322424845);
+  return 0;
+}

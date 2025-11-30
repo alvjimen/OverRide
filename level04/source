@@ -1,0 +1,62 @@
+int clear_stdin()
+{
+  register int result; // eax
+
+  do
+    result =  getchar();
+  while (result != 10 && result != 0xFF);
+  return (result);
+}
+
+int get_unun()
+{
+  unsigned int user_input; // [esp+1Ch] [ebp-Ch] BYREF
+
+  user_input = 0;
+  fflush(stdout);
+  __isoc99_scanf("%u", user_input);
+  clear_stdin();
+  return user_input;
+}
+
+int prog_timeout()
+{
+  return sys_exit(1);
+}
+
+unsigned int enable_timeout_cons()
+{
+  signal(14, (__sighandler_t)prog_timeout);
+  return alarm(0x3Cu);
+}
+
+int main(void)
+{
+  char s[128];
+  int signal;
+  int status;
+
+  if  (pid)
+  {
+    do
+    {
+      wait(&status);
+      if (!WIFSIGTERM(status) || WIFSIGNALED(status))
+      {
+	puts("children is exiting");
+	return (0);
+      }
+      signal = ptrace(PTRACE_PEEKUSER, pid, 44, 0);//offset user_regs_struct  syscall
+    } while(signal  != 11);//if execve  kill dad.
+    puts("no exec() for you");
+    kill(pid, 9);
+   }
+  else
+  {
+    prctl(1, 1);
+    ptrace(PTRACE_TRACEME, 0, 0, 0);
+    puts("Give me some shellcode, k");
+    gets(s);
+  }
+  return 0;
+}
