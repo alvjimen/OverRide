@@ -1,0 +1,17 @@
+* Data Gathering
+#+title: Walkthrough
+** check sec
+** Sticky bit
+** Strings
+** Functions
+** Global vars
+* Binary Analisis
+** Functions
+** Source
+[[source]]
+** Get offset
+** Explotation idea
+* Explotation
+#+begin_src shell
+cat /tmp/$USER - | ./$USER
+#+end_src

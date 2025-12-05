@@ -1,0 +1,16 @@
+int __cdecl __noreturn main(int argc, const char **argv, const char **envp)
+{
+  char s[100]; // [esp+28h] [ebp-70h] BYREF
+  unsigned int i; // [esp+8Ch] [ebp-Ch]
+
+  i = 0;
+  fgets(s, 100, stdin);// No overflow
+  for ( i = 0; i < strlen(s); ++i )
+  {
+    s[i] = tolower(s[i]);
+    /* if ( s[i] > 64 && s[i] <= 90 ) // Mayus alfabet */
+    /*   s[i] ^= 0x20u;// */
+  }
+  printf(s);// format string
+  exit(0);// OverWrite exit.got.plt va to shellcode.
+}

