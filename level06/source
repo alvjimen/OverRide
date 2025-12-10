@@ -32,9 +32,9 @@ int __cdecl main(int argc, const char **argv, const char **envp)
 {
   int v4; // [esp+2Ch] [ebp-24h] BYREF
   char s[28]; // [esp+30h] [ebp-20h] BYREF
-  unsigned int v6; // [esp+4Ch] [ebp-4h]
+  unsigned int canary; // [esp+4Ch] [ebp-4h]
 
-  v6 = __readgsdword(0x14u);
+  canary = __readgsdword(0x14u); // read from GS + offset.
   puts("***********************************");
   puts("*\t\tlevel06\t\t  *");
   puts("***********************************");
@@ -46,7 +46,12 @@ int __cdecl main(int argc, const char **argv, const char **envp)
   printf("-> Enter Serial: ");
   __isoc99_scanf("%u", &v4);
  if (auth(s, v4))
-   return (1);
+   {
+     if (canary == __readgsdword(0x14u))
+       return (1);
+     else
+       __stack_chk_fail();
+   }
  puts("Authenticated!");
- system("/bin/sh");
+ return (system("/bin/sh"));
 }
