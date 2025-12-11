@@ -265,15 +265,44 @@ Stack canary on main
 #+end_quote
 ** Source
 [[source]]
-** Get offset
-#+begin_src shell
-
-#+end_src
 ** Explotation idea
 #+begin_src shell
-Reverse auth for got validate and reach system.
+Reverse serauth for got validate and reach system.
+#+end_src
+
+*** Reverse  Serializer.
+#+begin_src python :mkdirp yes :tangle Ressources/Serial_gen.py
+def compute_serial(s):
+    #ord is used for get the value of ascii of the char.
+    v4 = (ord(s[3]) ^ 0x1337) + 6221293
+    for ch in s:
+        c = ord(ch)
+        v4 = (v4 + ((v4 ^ c) % 0x539)) & 0xffffffff
+    return v4
+
+def main():
+    s = 'level06'#Bytearr
+    serial = compute_serial(s)
+    print "username:", s, "serial:", serial
+
+if __name__ == '__main__':
+    main()
+
 #+end_src
 * Explotation
 #+begin_src shell
-cat /tmp/$USER - | ./$USER
+  ./level06
+  ,***********************************
+  ,*		level06		  *
+  ,***********************************
+  -> Enter Login: level06
+  ,***********************************
+  ,***** NEW ACCOUNT DETECTED ********
+  ,***********************************
+  -> Enter Serial: 6233721
+  Authenticated!
+  $ id
+  uid=1006(level06) gid=1006(level06) euid=1007(level07) egid=100(users) groups=1007(level07),100(users),1006(level06)
+  $ cat /home/users/`whoami`/.pass
+  GbcPDRgsFK77LNnnuh7QyFYA2942Gp8yKj9KrWD8
 #+end_src

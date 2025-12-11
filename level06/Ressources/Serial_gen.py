@@ -1,16 +1,16 @@
-def compute_serial(s: bytes) -> int:
-    if len(s) < 6:
-        raise ValueError("s must have length >= 6")
-    if any(c <= 31 for c in s):
-        raise ValueError("s contains control bytes")
-    v4 = (s[3] ^ 0x1337) + 6221293
-    # operate in 32-bit unsigned wraparound like C unsigned
-    for c in s:
+def compute_serial(s):
+    #ord is used for get the value of ascii of the char.
+    v4 = (ord(s[3]) ^ 0x1337) + 6221293
+    for ch in s:
+        c = ord(ch)
         v4 = (v4 + ((v4 ^ c) % 0x539)) & 0xffffffff
     return v4
 
 def main():
-    # choose a printable username of length >=6
-    s = b'level06'   # must be bytes
+    s = 'level06'#Bytearr
     serial = compute_serial(s)
-    print "compute_serial: ", serial
+    print "username:", s, "serial:", serial
+
+
+if __name__ == '__main__':
+    main()
