@@ -404,7 +404,6 @@ May overwrite number or s but would be reset.
 May overwrite the canary
 #+end_quote
 **** unum High byte 183
-
 #+begin_src shell
 p/x 183
 $2 = 0xb7
@@ -469,7 +468,39 @@ $28 = 0
     (gdb) p $a == 3 * ($a/3)
     $30 = 1 // For what i see doesn't gonna change the index
 #+end_src
-**** Mappings
+***** Look further asm
+****** Canary preserved
+#+begin_src shell
+     0x080489ea <+711>:	lea    esp,[ebp-0xc]
+     0x080489ed <+714>:	pop    ebx
+     0x080489ee <+715>:	pop    esi
+     0x080489ef <+716>:	pop    edi
+     0x080489f0 <+717>:	pop    ebp
+     0x080489f1 <+718>:	ret
+    p/d ($ebp-0xc)-($esp+0x24)
+    $39 = 440
+    (gdb) set $a=110
+    (gdb) p $a == 3 * ($a/3)
+    $40 = 0
+#+end_src
+
+#+begin_quote
+Modify ebp-0xc to point esp to another place where esp+4*5 = ret va
+#+end_quote
+
+****** Canary not preserved
+#+begin_src shell
+  0x080489e5 <+706>:	call   0x80484b0 <__stack_chk_fail@plt>
+x/i 0x80484b0
+   0x80484b0 <__stack_chk_fail@plt>:	jmp    DWORD PTR ds:0x804a010
+x/a 0x804a010
+0x804a010 <__stack_chk_fail@got.plt>:	0x80484b6 <__stack_chk_fail@plt+6>
+#+end_src
+**** CANC Mappings
+CLOSED: [2025-12-11 Thu 15:10]
+:LOGBOOK:
+- State "CANC"       from              [2025-12-11 Thu 15:10]
+:END:
 #+begin_src shell
      (gdb) info proc map
      process 1834
