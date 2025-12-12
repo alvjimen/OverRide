@@ -267,10 +267,10 @@ Stack canary on main
 [[source]]
 ** Explotation idea
 #+begin_src shell
-Reverse serauth for got validate and reach system.
+Reverse auth for got validate and reach system.
 #+end_src
 
-*** Reverse  Serializer.
+*** Optional Reverse  Serializer.
 #+begin_src python :mkdirp yes :tangle Ressources/Serial_gen.py
 def compute_serial(s):
     #ord is used for get the value of ascii of the char.
@@ -289,6 +289,9 @@ if __name__ == '__main__':
     main()
 
 #+end_src
+#+begin_quote
+Could i debug put the string and get the expected serial value. and without debug put in atoi the serial val.
+#+end_quote
 * Explotation
 #+begin_src shell
   ./level06

