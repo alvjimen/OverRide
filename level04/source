@@ -62,6 +62,6 @@ int main(void)
 	  puts("Give me some shellcode, k");
 	  gets(s);
       }
-  }
-  return 0;
+  } 
+ return 0;
 }

